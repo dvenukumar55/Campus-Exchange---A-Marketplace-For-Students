@@ -1,0 +1,6 @@
+{
+  "name": "Campus Exchange",
+  "description": "A closed college-exclusive marketplace where verified students can buy and sell eligible academic and hostel items within their college community.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

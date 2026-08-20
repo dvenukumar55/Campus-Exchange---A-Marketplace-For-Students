@@ -1,0 +1,33 @@
+const dotenv = require('dotenv');
+const path = require('path');
+
+// Load environment variables from .env if present
+dotenv.config();
+
+const env = {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: parseInt(process.env.PORT || '5000', 10),
+  API_PREFIX: process.env.API_PREFIX || '/api/v1',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/campus_exchange',
+  JWT_SECRET: process.env.JWT_SECRET || 'dev_jwt_secret_campus_exchange_avih_2026',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  
+  // Storage settings
+  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',
+  STORAGE_LOCAL_DIR: process.env.STORAGE_LOCAL_DIR || path.join(__dirname, '../../uploads'),
+  STORAGE_MAX_FILE_SIZE_MB: parseInt(process.env.STORAGE_MAX_FILE_SIZE_MB || '5', 10),
+  STORAGE_MAX_PHOTO_COUNT: parseInt(process.env.STORAGE_MAX_PHOTO_COUNT || '5', 10),
+  STORAGE_ALLOWED_MIME_TYPES: (process.env.STORAGE_ALLOWED_MIME_TYPES || 'image/jpeg,image/png,image/webp').split(','),
+  
+  // SLA and Performance targets
+  TARGET_RESPONSE_TIME_MS: parseInt(process.env.TARGET_RESPONSE_TIME_MS || '3000', 10),
+  TARGET_AVAILABILITY_PERCENT: parseFloat(process.env.TARGET_AVAILABILITY_PERCENT || '99.0'),
+  
+  // Default pilot college
+  DEFAULT_COLLEGE_ID: process.env.DEFAULT_COLLEGE_ID || 'avih-gunthapalli',
+  DEFAULT_COLLEGE_NAME: process.env.DEFAULT_COLLEGE_NAME || 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+  DEFAULT_COLLEGE_DOMAIN: process.env.DEFAULT_COLLEGE_DOMAIN || 'avih.edu.in',
+};
+
+module.exports = env;
