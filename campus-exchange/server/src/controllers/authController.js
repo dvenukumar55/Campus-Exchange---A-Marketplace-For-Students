@@ -14,6 +14,18 @@ class AuthController {
       next(error);
     }
   }
+     /**
+   * POST /api/v1/auth/send-code
+   * Generates a development OTP for the official college email.
+   */
+  async sendCode(req, res, next) {
+    try {
+      const result = await authService.sendVerificationCode(req.validatedAuth);
+      return sendSuccess(res, 200, result);
+    } catch (error) {
+      next(error);
+    }
+  }
 
   /**
    * GET /api/v1/auth/me

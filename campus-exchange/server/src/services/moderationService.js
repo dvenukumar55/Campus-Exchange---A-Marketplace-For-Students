@@ -10,6 +10,40 @@ class ModerationService {
   /**
    * Submits a report against a listing / seller
    */
+     async warnStudent({ studentId, reviewer }) {
+       const student = await Student.findOne({ studentId });
+
+       if (!student) {
+         throw new NotFoundError('Student not found');
+       }
+
+       student.warningCount += 1;
+       await student.save();
+
+       await eventService.recordEvent({
+         eventType: PILOT_EVENT_TYPES.USER_WARNED,
+         collegeId: student.collegeId,
+         studentId: student.studentId,
+         metadata: {
+           reviewerId: reviewer.studentId,
+           warningCount: student.warningCount,
+         },
+       });
+
+       return student;
+     }
+       async blockStudent({ studentId, reviewer }) {
+         const student = await Student.findOne({ studentId });
+
+         if (!student) {
+           throw new NotFoundError('Student not found');
+         }
+
+         student.accountStatus = ACCOUNT_STATUS.SUSPENDED;
+         await student.save();
+
+         return student;
+       }
   async createReport({ listingId, reporter, reason, description }) {
     const listing = await Listing.findOne({ listingId });
     if (!listing) {

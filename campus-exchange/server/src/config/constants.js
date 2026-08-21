@@ -36,7 +36,11 @@ module.exports = {
     ACTIVE: 'active',
     SUSPENDED: 'suspended',
   },
-
+USER_ROLE: {
+  STUDENT: 'student',
+  MODERATOR: 'moderator',
+  ADMIN: 'admin',
+},
   REPORT_STATUS: {
     OPEN: 'open',
     REVIEWING: 'reviewing',
@@ -64,6 +68,7 @@ module.exports = {
     CHAT_MESSAGE_SENT: 'CHAT_MESSAGE_SENT',
     REPORT_SUBMITTED: 'REPORT_SUBMITTED',
     REPORT_RESOLVED: 'REPORT_RESOLVED',
+    USER_WARNED: 'USER_WARNED',
   },
 
   ERROR_CODES: {

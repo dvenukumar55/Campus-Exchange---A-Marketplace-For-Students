@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
+const adminRoutes = require('./adminRoutes');
 const authRoutes = require('./authRoutes');
 const listingRoutes = require('./listingRoutes');
 const chatRoutes = require('./chatRoutes');
@@ -10,6 +10,7 @@ const metricsRoutes = require('./metricsRoutes');
 const healthRoutes = require('./healthRoutes');
 
 // Version 1 API routes
+router.use('/admin', adminRoutes);
 router.use('/auth', authRoutes);
 router.use('/listings', listingRoutes);
 router.use('/listings', chatRoutes); // /listings/:listingId/chat

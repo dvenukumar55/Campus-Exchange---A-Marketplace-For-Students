@@ -1,5 +1,5 @@
+const { VERIFICATION_STATUS, ACCOUNT_STATUS, USER_ROLE } = require('../config/constants');
 const mongoose = require('mongoose');
-const { VERIFICATION_STATUS, ACCOUNT_STATUS } = require('../config/constants');
 
 const StudentSchema = new mongoose.Schema(
   {
@@ -47,6 +47,17 @@ const StudentSchema = new mongoose.Schema(
       enum: Object.values(ACCOUNT_STATUS),
       default: ACCOUNT_STATUS.ACTIVE,
       index: true,
+    },
+    role: {
+      type: String,
+      enum: Object.values(USER_ROLE),
+      default: USER_ROLE.STUDENT,
+      index: true,
+    },
+    warningCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     verifiedAt: {
       type: Date,

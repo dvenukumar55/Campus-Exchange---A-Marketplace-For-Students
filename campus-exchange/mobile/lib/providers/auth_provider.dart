@@ -32,7 +32,26 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+  Future<bool> sendVerificationCode(String email) async {
+  _isLoading = true;
+  _errorMessage = null;
+  notifyListeners();
 
+  try {
+    await _authService.sendVerificationCode(
+      officialEmail: email,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+    return true;
+  } catch (e) {
+    _errorMessage = e.toString();
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+}
   Future<bool> verifyOfficialEmail(String email, {String? verificationCode}) async {
     _isLoading = true;
     _errorMessage = null;

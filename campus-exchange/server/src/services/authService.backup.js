@@ -1,6 +1,4 @@
 const jwt = require('jsonwebtoken');
-const otpService = require('./otpService');
-const emailService = require('./emailService');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const env = require('../config/env');
@@ -30,85 +28,11 @@ class AuthService {
       expiresIn: env.JWT_EXPIRES_IN,
     });
   }
-  
-    async sendVerificationCode({ officialEmail, college }) {
-    let student = await Student.findOne({
-      collegeId: college.collegeId,
-      officialEmail,
-    });
-
-    if (!student) {
-      const localPart = officialEmail.split('@')[0];
-      const studentName =
-        localPart
-          .replace(/[0-9._-]+/g, ' ')
-          .trim()
-          .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Student User';
-
-      student = new Student({
-        studentId: `std_${uuidv4().substring(0, 10)}`,
-        collegeId: college.collegeId,
-        officialEmail,
-        fullName: studentName,
-        role: 'student',
-        verificationStatus: VERIFICATION_STATUS.PENDING,
-        accountStatus: ACCOUNT_STATUS.ACTIVE,
-      });
-    }
-
-    const otp = otpService.generateOtp();
-
-    student.verificationCodeHash = otpService.hashOtp(otp);
-    student.verificationCodeExpiresAt = otpService.getExpiry();
-
-    await student.save();
-
-    // Development/pilot mode: display OTP in server terminal.
-  await emailService.sendVerificationCode(officialEmail, otp);
-    return {
-      message: 'Verification code generated successfully.',
-      expiresInMinutes: 10,
-    };
-  }
 
   /**
    * Verifies an official college email address and establishes verified student access
    */
   async verifyAndAuthenticate({ officialEmail, verificationCode, college }) {
-     
-         if (!verificationCode) {
-      throw new BadRequestError('Verification code is required');
-    }
-
-    const existingStudent = await Student.findOne({
-      collegeId: college.collegeId,
-      officialEmail,
-    });
-
-    if (!existingStudent) {
-      throw new UnauthorizedError(
-        'Please request a verification code first'
-      );
-    }
-
-    const isValidOtp = otpService.verifyOtp(
-      verificationCode,
-      existingStudent.verificationCodeHash,
-      existingStudent.verificationCodeExpiresAt
-    );
-
-    if (!isValidOtp) {
-      throw new UnauthorizedError(
-        'Invalid or expired verification code'
-      );
-    }
-
-    existingStudent.verificationCodeHash = undefined;
-    existingStudent.verificationCodeExpiresAt = undefined;
-    existingStudent.verificationStatus = VERIFICATION_STATUS.VERIFIED;
-    existingStudent.verifiedAt = new Date();
-    await existingStudent.save();
-
     const emailDomain = officialEmail.split('@')[1];
 
     // In a production campus pilot, an OTP or institutional SAML SSO would validate verificationCode.

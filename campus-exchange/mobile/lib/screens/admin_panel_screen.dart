@@ -393,6 +393,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       },
       {
         'name': 'Venu Madhav',
+        'studentId': 'std_6296801a-e',
         'email': 'venumadhav@avih.edu.in',
         'dept': 'Computer Science',
         'role': 'STUDENT',
@@ -483,19 +484,55 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Warning issued to ${st['name']} (Trust -15)')),
-                        );
-                      },
+                      onPressed: () async {
+                    try {
+                      await _reportService.issueWarning(
+                        st['studentId'] as String,
+                      );
+
+                      if (!mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Warning issued to ${st['name']}'),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to issue warning: $e'),
+                        ),
+                      );
+                    }
+                  },
                       child: const Text('Issue Warning', style: TextStyle(fontSize: 12, color: Color(0xFFD97706))),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Toggled account enforcement for ${st['name']}')),
-                        );
+                      onPressed: () async {
+                        try {
+                          await _reportService.blockStudent(
+                            st['studentId'] as String,
+                          );
+
+                          if (!mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('User ${st['name']} has been blocked'),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to block user: $e'),
+                            ),
+                          );
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFE11D48)),

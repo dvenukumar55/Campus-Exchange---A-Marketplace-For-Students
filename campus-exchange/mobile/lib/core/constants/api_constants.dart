@@ -15,6 +15,9 @@ class ApiConstants {
   static const String myListings = '/listings/my';
   static const String uploadImage = '/listings/upload-image';
 
+// Admin
+static const String admin = '/admin';
+
   // Chat & Reports
   static const String userChats = '/chats';
   static const String reports = '/reports';

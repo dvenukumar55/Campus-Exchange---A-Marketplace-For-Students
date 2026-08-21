@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const env = require('../config/env');
 const Student = require('../models/Student');
-const { VERIFICATION_STATUS, ACCOUNT_STATUS } = require('../config/constants');
+const { VERIFICATION_STATUS, ACCOUNT_STATUS, USER_ROLE } = require('../config/constants');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 
 /**
@@ -84,8 +84,22 @@ const requireVerified = (req, res, next) => {
 
   next();
 };
+const requireAdmin = (req, res, next) => {
+  if (!req.student) {
+    return next(new UnauthorizedError('Authentication required'));
+  }
 
+  if (
+    req.student.role !== USER_ROLE.ADMIN &&
+    req.student.role !== USER_ROLE.MODERATOR
+  ) {
+    return next(new ForbiddenError('Administrator access required'));
+  }
+
+  next();
+};
 module.exports = {
   authenticate,
   requireVerified,
+  requireAdmin,
 };

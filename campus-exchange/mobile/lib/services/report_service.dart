@@ -4,7 +4,16 @@ import '../models/report.dart';
 
 class ReportService {
   final ApiClient _apiClient = ApiClient();
-
+  Future<void> issueWarning(String studentId) async {
+    await _apiClient.post(
+      '${ApiConstants.admin}/students/$studentId/warn',
+    );
+  }
+    Future<void> blockStudent(String studentId) async {
+      await _apiClient.post(
+        '${ApiConstants.admin}/students/$studentId/block',
+      );
+    }
   Future<Report> createReport({
     required String listingId,
     required String reason,

@@ -6,6 +6,20 @@ import '../models/student.dart';
 class AuthService {
   final ApiClient _apiClient = ApiClient();
 
+  Future<void> sendVerificationCode({
+  required String officialEmail,
+  String? collegeId,
+}) async {
+  await _apiClient.post(
+    '/auth/send-code',
+    body: {
+      'officialEmail': officialEmail,
+      if (collegeId != null) 'collegeId': collegeId,
+    },
+    requiresAuth: false,
+  );
+} 
+
   Future<Student> verifyOfficialEmail({
     required String officialEmail,
     String? verificationCode,

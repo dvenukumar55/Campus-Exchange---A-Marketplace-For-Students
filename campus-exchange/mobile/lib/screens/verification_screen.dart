@@ -26,37 +26,72 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
-  Future<void> _handleVerification() async {
-    if (!_formKey.currentState!.validate()) return;
+ Future<void> _handleVerification() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final email = _emailController.text.trim();
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final email = _emailController.text.trim();
 
-    final success = await authProvider.verifyOfficialEmail(
-      email,
-      verificationCode: _codeSent ? _codeController.text.trim() : null,
-    );
+  if (!_codeSent) {
+    final sent = await authProvider.sendVerificationCode(email);
 
     if (!mounted) return;
 
-    if (success) {
+    if (sent) {
+      setState(() {
+        _codeSent = true;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification successful! Welcome to Campus Exchange.'),
+          content: Text('Verification code sent. Check the server console.'),
           backgroundColor: AppTheme.secondaryColor,
         ),
       );
-      Navigator.pushReplacementNamed(context, AppRoutes.marketplace);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Verification failed'),
+          content: Text(
+            authProvider.errorMessage ?? 'Failed to send verification code',
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );
     }
+
+    return;
   }
 
+  final success = await authProvider.verifyOfficialEmail(
+    email,
+    verificationCode: _codeController.text.trim(),
+  );
+
+  if (!mounted) return;
+
+  if (success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Verification successful! Welcome to Campus Exchange.'),
+        backgroundColor: AppTheme.secondaryColor,
+      ),
+    );
+
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.marketplace,
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          authProvider.errorMessage ?? 'Verification failed',
+        ),
+        backgroundColor: AppTheme.errorColor,
+      ),
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -137,18 +172,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-
+                  
                   if (_codeSent) ...[
-                    CustomTextField(
-                      controller: _codeController,
-                      label: 'Verification Code (Optional for Dev/Pilot)',
-                      hint: 'Enter OTP or code',
-                      prefixIcon: Icons.lock_outline,
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
+  CustomTextField(
+    controller: _codeController,
+    label: 'Verification Code',
+    hint: 'Enter 6-digit code',
+    prefixIcon: Icons.lock_outline,
+    keyboardType: TextInputType.number,
+    validator: (val) {
+      if (val == null || val.trim().isEmpty) {
+        return 'Verification code is required';
+      }
+      if (!RegExp(r'^\d{6}$').hasMatch(val.trim())) {
+        return 'Enter the 6-digit verification code';
+      }
+      return null;
+    },
+  ),
+  const SizedBox(height: 20),
+],
+                  
                   ElevatedButton(
                     onPressed: authProvider.isLoading ? null : _handleVerification,
                     child: authProvider.isLoading
@@ -160,7 +204,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : Text(_codeSent ? 'Complete Verification' : 'Verify & Enter Marketplace'),
+                        :  Text(_codeSent ? 'Complete Verification' : 'Send Verification Code'),
                   ),
                   const SizedBox(height: 24),
 
