@@ -4,7 +4,28 @@ const router = express.Router();
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const moderationService = require('../services/moderationService');
 
-router.get('/test', authenticate, requireAdmin, (req, res) => {
+const Student = require('../models/Student');
+const Listing = require('../models/Listing');
+const Report = require('../models/Report');
+const PilotEvent = require('../models/PilotEvent');
+const College = require('../models/College');
+
+const {
+  LISTING_STATUS,
+  REPORT_STATUS,
+} = require('../config/constants');
+
+/*
+ * All admin routes require:
+ * 1. Valid JWT
+ * 2. Admin or moderator role
+ */
+router.use(authenticate, requireAdmin);
+
+/**
+ * GET /api/v1/admin/test
+ */
+router.get('/test', (req, res) => {
   res.json({
     success: true,
     message: 'Admin API is working',
@@ -12,7 +33,281 @@ router.get('/test', authenticate, requireAdmin, (req, res) => {
   });
 });
 
-router.post('/students/:studentId/warn', authenticate, requireAdmin, async (req, res, next) => {
+/**
+ * GET /api/v1/admin/dashboard
+ *
+ * Returns REAL MongoDB statistics for the Admin Dashboard.
+ */
+router.get('/dashboard', async (req, res, next) => {
+  try {
+    const collegeId = req.student.collegeId;
+
+    const [
+      college,
+      totalStudents,
+      verifiedStudents,
+      activeStudents,
+      suspendedStudents,
+      activeListings,
+      soldListings,
+      closedListings,
+      pendingReports,
+      totalReports,
+      volumeResult,
+      campusListingStats,
+      recentEvents,
+    ] = await Promise.all([
+      College.findOne({ collegeId }).lean(),
+
+      Student.countDocuments({ collegeId }),
+
+      Student.countDocuments({
+        collegeId,
+        verificationStatus: 'verified',
+      }),
+
+      Student.countDocuments({
+        collegeId,
+        accountStatus: 'active',
+      }),
+
+      Student.countDocuments({
+        collegeId,
+        accountStatus: 'suspended',
+      }),
+
+      Listing.countDocuments({
+        collegeId,
+        status: LISTING_STATUS.ACTIVE,
+      }),
+
+      Listing.countDocuments({
+        collegeId,
+        closedReason: 'sold',
+      }),
+
+      Listing.countDocuments({
+        collegeId,
+        status: LISTING_STATUS.CLOSED,
+      }),
+
+      Report.countDocuments({
+        collegeId,
+        status: REPORT_STATUS.OPEN,
+      }),
+
+      Report.countDocuments({
+        collegeId,
+      }),
+
+      Listing.aggregate([
+        {
+          $match: {
+            collegeId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$price' },
+          },
+        },
+      ]),
+
+      Listing.aggregate([
+        {
+          $match: {
+            collegeId,
+          },
+        },
+        {
+          $group: {
+            _id: '$collegeId',
+            listingCount: { $sum: 1 },
+            activeCount: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$status', LISTING_STATUS.ACTIVE] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+
+      PilotEvent.find({
+        collegeId,
+      })
+        .sort({ occurredAt: -1 })
+        .limit(20)
+        .lean(),
+    ]);
+
+    const marketVolume =
+      volumeResult.length > 0
+        ? Number(volumeResult[0].total || 0)
+        : 0;
+
+    res.json({
+      success: true,
+      data: {
+        college: college
+          ? {
+              collegeId: college.collegeId,
+              name: college.name,
+              verificationDomain: college.verificationDomain,
+              status: college.status,
+            }
+          : null,
+
+        students: {
+          total: totalStudents,
+          verified: verifiedStudents,
+          active: activeStudents,
+          suspended: suspendedStudents,
+        },
+
+        listings: {
+          active: activeListings,
+          sold: soldListings,
+          closed: closedListings,
+          total: activeListings + closedListings,
+        },
+
+        reports: {
+          pending: pendingReports,
+          total: totalReports,
+        },
+
+        market: {
+          volume: marketVolume,
+        },
+
+        campuses: campusListingStats.map((item) => ({
+          collegeId: item._id,
+          listingCount: item.listingCount,
+          activeCount: item.activeCount,
+        })),
+
+        recentEvents,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/admin/students
+ *
+ * Real students from MongoDB.
+ */
+router.get('/students', async (req, res, next) => {
+  try {
+    const students = await Student.find({
+      collegeId: req.student.collegeId,
+    })
+      .select(
+        'studentId officialEmail fullName department role accountStatus verificationStatus warningCount verifiedAt createdAt'
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/admin/reports
+ *
+ * Real reports from MongoDB.
+ */
+router.get('/reports', async (req, res, next) => {
+  try {
+    const status = req.query.status;
+
+    const query = {
+      collegeId: req.student.collegeId,
+    };
+
+    if (
+      status &&
+      Object.values(REPORT_STATUS).includes(status)
+    ) {
+      query.status = status;
+    }
+
+    const reports = await Report.find(query)
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      success: true,
+      data: reports,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/admin/audit-logs
+ *
+ * Real PilotEvent records from MongoDB.
+ */
+router.get('/audit-logs', async (req, res, next) => {
+  try {
+    const events = await PilotEvent.find({
+      collegeId: req.student.collegeId,
+    })
+      .sort({ occurredAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      success: true,
+      data: events,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/admin/listings
+ *
+ * Real marketplace listings for administration.
+ */
+router.get('/listings', async (req, res, next) => {
+  try {
+    const listings = await Listing.find({
+      collegeId: req.student.collegeId,
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      success: true,
+      data: listings,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * WARN STUDENT
+ */
+router.post('/students/:studentId/warn', async (req, res, next) => {
   try {
     const result = await moderationService.warnStudent({
       studentId: req.params.studentId,
@@ -27,7 +322,11 @@ router.post('/students/:studentId/warn', authenticate, requireAdmin, async (req,
     next(error);
   }
 });
-router.post('/students/:studentId/block', authenticate, requireAdmin, async (req, res, next) => {
+
+/**
+ * BLOCK STUDENT
+ */
+router.post('/students/:studentId/block', async (req, res, next) => {
   try {
     const result = await moderationService.blockStudent({
       studentId: req.params.studentId,

@@ -42,10 +42,34 @@ void main() {
         department: 'CSE',
         verificationStatus: 'verified',
         accountStatus: 'active',
+        role: 'student',
       );
 
       expect(verifiedStudent.isVerified, true);
       expect(verifiedStudent.collegeId, 'avih-gunthapalli');
+      expect(verifiedStudent.role, 'student');
+      expect(verifiedStudent.isAdmin, false);
+      expect(verifiedStudent.isModerator, false);
+      expect(verifiedStudent.canAccessAdminPanel, false);
+    });
+
+    test('Admin student can access admin panel', () {
+      final adminStudent = Student(
+        studentId: 'admin_1',
+        collegeId: 'avih-gunthapalli',
+        collegeName: 'Avanthi Institute',
+        officialEmail: 'admin@avih.edu.in',
+        fullName: 'Campus Admin',
+        department: 'Administration',
+        verificationStatus: 'verified',
+        accountStatus: 'active',
+        role: 'admin',
+      );
+
+      expect(adminStudent.isVerified, true);
+      expect(adminStudent.isAdmin, true);
+      expect(adminStudent.isModerator, false);
+      expect(adminStudent.canAccessAdminPanel, true);
     });
   });
 }

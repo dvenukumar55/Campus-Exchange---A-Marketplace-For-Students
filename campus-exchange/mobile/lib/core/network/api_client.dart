@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
 import '../error/app_exception.dart';
@@ -76,7 +77,46 @@ class ApiClient {
       _handleNetworkError(e);
     }
   }
+ Future<Map<String, dynamic>> uploadFile(
+   String endpoint,
+   File file, {
+   String fieldName = 'photo',
+   bool requiresAuth = true,
+ }) async {
+   try {
+     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
 
+     final request = http.MultipartRequest('POST', uri);
+
+     request.headers['Accept'] = 'application/json';
+
+     if (requiresAuth) {
+       final token = await SecureStorage.getToken();
+
+       if (token != null && token.isNotEmpty) {
+         request.headers['Authorization'] = 'Bearer $token';
+       }
+     }
+
+     request.files.add(
+       await http.MultipartFile.fromPath(
+         fieldName,
+         file.path,
+       ),
+     );
+
+     final streamedResponse = await request.send().timeout(timeoutDuration);
+
+     final response = await http.Response.fromStream(streamedResponse);
+
+     return Map<String, dynamic>.from(
+       _processResponse(response) as Map,
+     );
+   } catch (e) {
+     _handleNetworkError(e);
+     rethrow;
+   }
+ }
   dynamic _processResponse(http.Response response) {
     dynamic jsonBody;
     try {

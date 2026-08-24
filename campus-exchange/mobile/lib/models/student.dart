@@ -7,6 +7,7 @@ class Student {
   final String department;
   final String verificationStatus;
   final String accountStatus;
+  final String role;
   final DateTime? verifiedAt;
 
   Student({
@@ -18,6 +19,7 @@ class Student {
     required this.department,
     required this.verificationStatus,
     required this.accountStatus,
+    required this.role,
     this.verifiedAt,
   });
 
@@ -25,13 +27,17 @@ class Student {
     return Student(
       studentId: json['studentId'] ?? '',
       collegeId: json['collegeId'] ?? '',
-      collegeName: json['collegeName'] ?? 'Avanthi Institute of Engineering and Technology',
+      collegeName: json['collegeName'] ??
+          'Avanthi Institute of Engineering and Technology',
       officialEmail: json['officialEmail'] ?? '',
       fullName: json['fullName'] ?? 'Verified Student',
       department: json['department'] ?? 'Engineering',
       verificationStatus: json['verificationStatus'] ?? 'pending',
       accountStatus: json['accountStatus'] ?? 'active',
-      verifiedAt: json['verifiedAt'] != null ? DateTime.tryParse(json['verifiedAt']) : null,
+      role: json['role'] ?? 'student',
+      verifiedAt: json['verifiedAt'] != null
+          ? DateTime.tryParse(json['verifiedAt'])
+          : null,
     );
   }
 
@@ -45,9 +51,16 @@ class Student {
       'department': department,
       'verificationStatus': verificationStatus,
       'accountStatus': accountStatus,
+      'role': role,
       'verifiedAt': verifiedAt?.toIso8601String(),
     };
   }
 
   bool get isVerified => verificationStatus == 'verified';
+
+  bool get isAdmin => role == 'admin';
+
+  bool get isModerator => role == 'moderator';
+
+  bool get canAccessAdminPanel => isAdmin || isModerator;
 }

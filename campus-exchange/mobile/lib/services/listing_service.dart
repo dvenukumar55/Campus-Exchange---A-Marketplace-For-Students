@@ -1,3 +1,4 @@
+import 'dart:io';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/listing.dart';
@@ -48,7 +49,21 @@ class ListingService {
     final response = await _apiClient.get('${ApiConstants.listings}/$listingId');
     return Listing.fromJson(response['listing'] as Map<String, dynamic>);
   }
+ Future<String> uploadListingImage(File file) async {
+   final response = await _apiClient.uploadFile(
+     ApiConstants.uploadImage,
+     file,
+     fieldName: 'photo',
+   );
 
+   final photoRef = response['photoRef'];
+
+   if (photoRef == null || photoRef.toString().isEmpty) {
+     throw Exception('Image upload succeeded but no photo reference was returned');
+   }
+
+   return photoRef.toString();
+ }
   Future<Listing> createListing({
     required String title,
     required String description,
