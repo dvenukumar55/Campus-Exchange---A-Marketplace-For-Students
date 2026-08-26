@@ -44,138 +44,107 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     final listingProvider = Provider.of<ListingProvider>(context);
 
     final student = authProvider.currentStudent;
-
-    // Only admin and moderator accounts can access
-    // the Admin & Moderation Panel.
-    final canAccessAdminPanel =
-        student?.canAccessAdminPanel ?? false;
+    final canAccessAdminPanel = student?.canAccessAdminPanel ?? false;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        backgroundColor: AppTheme.backgroundColor,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Campus Exchange',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.textPrimary,
               ),
             ),
-            Text(
-              student?.collegeName ?? 'AVIH Pilot',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF93C5FD),
-              ),
+            Row(
+              children: [
+                const Icon(Icons.location_on_rounded, size: 14, color: AppTheme.tealAccent),
+                const SizedBox(width: 4),
+                Text(
+                  student?.collegeName ?? 'AVIH Pilot',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
-          // Admin Panel
-          //
-          // This icon is ONLY displayed for:
-          //   - admin
-          //   - moderator
-          //
-          // Normal students will NOT see this icon.
           if (canAccessAdminPanel)
-            IconButton(
-              icon: const Icon(
-                Icons.admin_panel_settings_outlined,
-              ),
-              tooltip: 'Admin Panel',
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.adminPanel,
-                );
-              },
+            _buildHeaderIconButton(
+              icon: Icons.admin_panel_settings_rounded,
+              color: AppTheme.primaryColor,
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.adminPanel),
             ),
-
-          // Pilot Metrics
-          IconButton(
-            icon: const Icon(Icons.analytics_outlined),
-            tooltip: 'Pilot Metrics',
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.metricsDashboard,
-              );
-            },
+          _buildHeaderIconButton(
+            icon: Icons.analytics_rounded,
+            color: AppTheme.tealAccent,
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.metricsDashboard),
           ),
-
-          // Messages
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline),
-            tooltip: 'Messages',
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.chatList,
-              );
-            },
+          _buildHeaderIconButton(
+            icon: Icons.chat_bubble_rounded,
+            color: AppTheme.violetAccent,
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.chatList),
           ),
-
-          // Profile
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Profile',
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.profile,
-              );
-            },
+          _buildHeaderIconButton(
+            icon: Icons.person_rounded,
+            color: AppTheme.warningColor,
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-
       body: RefreshIndicator(
-        onRefresh: () => listingProvider.fetchListings(
-          isRefresh: true,
-        ),
+        onRefresh: () => listingProvider.fetchListings(isRefresh: true),
+        color: AppTheme.primaryColor,
         child: Column(
           children: [
             // Search Input Field
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                8,
-              ),
-              child: TextField(
-                controller: _searchController,
-                onSubmitted: (val) {
-                  listingProvider.setSearchQuery(val);
-                },
-                decoration: InputDecoration(
-                  hintText:
-                      'Search books, lab tools, drawing kits...',
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: AppTheme.primaryColor,
-                  ),
-                  suffixIcon:
-                      _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(
-                                Icons.clear,
-                                size: 18,
-                              ),
-                              onPressed: () {
-                                _searchController.clear();
-                                listingProvider
-                                    .setSearchQuery('');
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                  contentPadding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: (val) {
+                    listingProvider.setSearchQuery(val);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search books, lab tools, etc...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primaryColor),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              listingProvider.setSearchQuery('');
+                              setState(() {});
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppTheme.surfaceColor,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
@@ -184,14 +153,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             // Category Filter Bar
             CategoryFilterBar(
               categories: AppConstants.categories,
-              selectedCategory:
-                  listingProvider.selectedCategory,
+              selectedCategory: listingProvider.selectedCategory,
               onSelected: (cat) {
                 listingProvider.setCategory(cat);
               },
             ),
 
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
 
             // Listing Feed
             Expanded(
@@ -200,41 +168,47 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           ],
         ),
       ),
-
-      // Sell Item Button
-      floatingActionButton:
-          FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.pushNamed(
-            context,
-            AppRoutes.createListing,
-          );
+          Navigator.pushNamed(context, AppRoutes.createListing);
         },
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        icon: const Icon(
-          Icons.add_shopping_cart,
-        ),
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.add_shopping_cart_rounded),
         label: const Text(
           'Sell Item',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
     );
   }
 
+  Widget _buildHeaderIconButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: color, size: 22),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
   Widget _buildFeed(ListingProvider provider) {
-    if (provider.isLoading &&
-        provider.listings.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+    if (provider.isLoading && provider.listings.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    if (provider.errorMessage != null &&
-        provider.listings.isEmpty) {
+    if (provider.errorMessage != null && provider.listings.isEmpty) {
       return ErrorStateView(
         message: provider.errorMessage!,
         onRetry: () => provider.fetchListings(),
@@ -244,38 +218,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     if (provider.listings.isEmpty) {
       return EmptyStateView(
         title: 'No Listings Found',
-        message:
-            'No active items listed in this category yet. '
-            'Be the first to list an academic item for '
-            'your campus peers!',
-        icon: Icons.inventory_2_outlined,
+        message: 'No active items listed in this category yet. Be the first to list an academic item for your campus peers!',
+        icon: Icons.inventory_2_rounded,
         actionLabel: 'Create First Listing',
         onAction: () {
-          Navigator.pushNamed(
-            context,
-            AppRoutes.createListing,
-          );
+          Navigator.pushNamed(context, AppRoutes.createListing);
         },
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(
-        top: 8,
-        bottom: 80,
-      ),
+      padding: const EdgeInsets.only(bottom: 100),
       itemCount: provider.listings.length,
       itemBuilder: (context, index) {
         final item = provider.listings[index];
-
         return ListingCard(
           listing: item,
           onTap: () {
-            Navigator.pushNamed(
-              context,
-              AppRoutes.listingDetail,
-              arguments: item,
-            );
+            Navigator.pushNamed(context, AppRoutes.listingDetail, arguments: item);
           },
         );
       },

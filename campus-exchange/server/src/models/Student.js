@@ -22,6 +22,12 @@ const StudentSchema = new mongoose.Schema(
       lowercase: true,
       index: true,
     },
+    rollNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
     fullName: {
       type: String,
       trim: true,
@@ -62,19 +68,13 @@ const StudentSchema = new mongoose.Schema(
     verifiedAt: {
       type: Date,
     },
-    verificationCodeHash: {
-      type: String,
-    },
-    verificationCodeExpiresAt: {
-      type: Date,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index: email must be unique per college
-StudentSchema.index({ collegeId: 1, officialEmail: 1 }, { unique: true });
+// Compound index: rollNumber must be unique per college
+StudentSchema.index({ collegeId: 1, rollNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Student', StudentSchema);

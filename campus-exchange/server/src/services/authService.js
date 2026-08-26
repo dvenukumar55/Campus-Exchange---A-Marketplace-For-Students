@@ -1,27 +1,35 @@
 const jwt = require('jsonwebtoken');
-const otpService = require('./otpService');
-const emailService = require('./emailService');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const env = require('../config/env');
 const Student = require('../models/Student');
 const College = require('../models/College');
-const { VERIFICATION_STATUS, ACCOUNT_STATUS, PILOT_EVENT_TYPES } = require('../config/constants');
-const { BadRequestError, UnauthorizedError } = require('../utils/errors');
+const {
+  VERIFICATION_STATUS,
+  ACCOUNT_STATUS,
+  PILOT_EVENT_TYPES,
+} = require('../config/constants');
+const { UnauthorizedError } = require('../utils/errors');
 const eventService = require('./eventService');
 
 /**
- * Service to handle official college email verification and JWT token issuance
+ * Service to handle Email + Roll Number authentication
+ * and JWT token issuance.
+ *
+ * The client does NOT provide collegeId.
+ * Existing students get their college from their Student record.
+ * New students use the configured default college.
  */
 class AuthService {
   /**
-   * Generates a signed JWT session token for an authenticated student
+   * Generates a signed JWT session token.
    */
   generateToken(student) {
     const payload = {
       studentId: student.studentId,
       collegeId: student.collegeId,
       officialEmail: student.officialEmail,
+      rollNumber: student.rollNumber,
       verificationStatus: student.verificationStatus,
       role: student.role,
     };
@@ -30,117 +38,106 @@ class AuthService {
       expiresIn: env.JWT_EXPIRES_IN,
     });
   }
-  
-    async sendVerificationCode({ officialEmail, college }) {
-    let student = await Student.findOne({
-      collegeId: college.collegeId,
-      officialEmail,
-    });
-
-    if (!student) {
-      const localPart = officialEmail.split('@')[0];
-      const studentName =
-        localPart
-          .replace(/[0-9._-]+/g, ' ')
-          .trim()
-          .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Student User';
-
-      student = new Student({
-        studentId: `std_${uuidv4().substring(0, 10)}`,
-        collegeId: college.collegeId,
-        officialEmail,
-        fullName: studentName,
-        role: 'student',
-        verificationStatus: VERIFICATION_STATUS.PENDING,
-        accountStatus: ACCOUNT_STATUS.ACTIVE,
-      });
-    }
-
-    const otp = otpService.generateOtp();
-
-    student.verificationCodeHash = otpService.hashOtp(otp);
-    student.verificationCodeExpiresAt = otpService.getExpiry();
-
-    await student.save();
-
-    // Development/pilot mode: display OTP in server terminal.
-  await emailService.sendVerificationCode(officialEmail, otp);
-    return {
-      message: 'Verification code generated successfully.',
-      expiresInMinutes: 10,
-    };
-  }
 
   /**
-   * Verifies an official college email address and establishes verified student access
+   * Authenticates using Email + Roll Number.
    */
-  async verifyAndAuthenticate({ officialEmail, verificationCode, college }) {
-     
-         if (!verificationCode) {
-      throw new BadRequestError('Verification code is required');
-    }
-
-    const existingStudent = await Student.findOne({
-      collegeId: college.collegeId,
-      officialEmail,
-    });
-
-    if (!existingStudent) {
-      throw new UnauthorizedError(
-        'Please request a verification code first'
-      );
-    }
-
-    const isValidOtp = otpService.verifyOtp(
-      verificationCode,
-      existingStudent.verificationCodeHash,
-      existingStudent.verificationCodeExpiresAt
-    );
-
-    if (!isValidOtp) {
-      throw new UnauthorizedError(
-        'Invalid or expired verification code'
-      );
-    }
-
-    existingStudent.verificationCodeHash = undefined;
-    existingStudent.verificationCodeExpiresAt = undefined;
-    existingStudent.verificationStatus = VERIFICATION_STATUS.VERIFIED;
-    existingStudent.verifiedAt = new Date();
-    await existingStudent.save();
-
-    const emailDomain = officialEmail.split('@')[1];
-
-    // In a production campus pilot, an OTP or institutional SAML SSO would validate verificationCode.
-    // For this pilot architecture, submitting the official institutional email executes verification.
+  async verifyAndAuthenticate({ officialEmail, rollNumber }) {
+    /*
+     * First search globally by roll number.
+     *
+     * This is important because the client no longer sends collegeId.
+     */
     let student = await Student.findOne({
-      collegeId: college.collegeId,
-      officialEmail,
+      rollNumber,
     });
 
     const isNewStudent = !student;
 
-    if (!student) {
-      // Auto-extract student name and batch if inferable
+    if (!isNewStudent) {
+      /*
+       * Existing roll number:
+       *
+       * The collegeId comes from the existing Student document.
+       * We never allow another email to take over this roll number.
+       */
+      if (student.officialEmail !== officialEmail) {
+        throw new UnauthorizedError(
+          'This roll number is already registered with another email. Please use the registered email or contact campus support.'
+        );
+      }
+
+      /*
+       * Validate account status.
+       */
+      if (student.accountStatus !== ACCOUNT_STATUS.ACTIVE) {
+        throw new UnauthorizedError(
+          'This student account is not active. Please contact campus support.'
+        );
+      }
+
+      /*
+       * Existing account is authenticated directly.
+       * No OTP or email verification is required.
+       */
+      if (student.verificationStatus !== VERIFICATION_STATUS.VERIFIED) {
+        student.verificationStatus = VERIFICATION_STATUS.VERIFIED;
+        student.verifiedAt = new Date();
+        await student.save();
+      }
+
+      await eventService.recordEvent({
+        eventType: PILOT_EVENT_TYPES.STUDENT_LOGIN,
+        collegeId: student.collegeId,
+        studentId: student.studentId,
+      });
+    } else {
+      /*
+       * New student.
+       *
+       * Since the client provides only email + roll number,
+       * there is no college information in the request.
+       *
+       * Therefore use the configured default college for new
+       * accounts until a college/roll-number onboarding system
+       * is introduced.
+       */
+      const college = await College.findOne({
+        collegeId: env.DEFAULT_COLLEGE_ID,
+        status: 'active',
+      });
+
+      if (!college) {
+        throw new UnauthorizedError(
+          'The default college configuration is unavailable.'
+        );
+      }
+
       const localPart = officialEmail.split('@')[0];
-      const studentName = localPart
-        .replace(/[0-9._-]+/g, ' ')
-        .trim()
-        .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Student User';
+
+      const studentName =
+        localPart
+          .replace(/[0-9._-]+/g, ' ')
+          .trim()
+          .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+        'Student User';
 
       student = new Student({
         studentId: `std_${uuidv4().substring(0, 10)}`,
         collegeId: college.collegeId,
         officialEmail,
+        rollNumber,
         fullName: studentName,
         role: 'student',
         verificationStatus: VERIFICATION_STATUS.VERIFIED,
         accountStatus: ACCOUNT_STATUS.ACTIVE,
         verifiedAt: new Date(),
       });
+
       await student.save();
 
-      // Record pilot sign-up event
+      const emailDomain = officialEmail.split('@')[1];
+
       await eventService.recordEvent({
         eventType: PILOT_EVENT_TYPES.STUDENT_SIGNUP_VERIFIED,
         collegeId: college.collegeId,
@@ -150,20 +147,14 @@ class AuthService {
           collegeName: college.name,
         },
       });
-    } else {
-      if (student.verificationStatus !== VERIFICATION_STATUS.VERIFIED) {
-        student.verificationStatus = VERIFICATION_STATUS.VERIFIED;
-        student.verifiedAt = new Date();
-        await student.save();
-      }
-
-      // Record student login event
-      await eventService.recordEvent({
-        eventType: PILOT_EVENT_TYPES.STUDENT_LOGIN,
-        collegeId: college.collegeId,
-        studentId: student.studentId,
-      });
     }
+
+    /*
+     * Retrieve the student's college for the response.
+     */
+    const college = await College.findOne({
+      collegeId: student.collegeId,
+    });
 
     const token = this.generateToken(student);
 
@@ -173,8 +164,11 @@ class AuthService {
       student: {
         studentId: student.studentId,
         collegeId: student.collegeId,
-        collegeName: college.name,
+        collegeName: college
+          ? college.name
+          : student.collegeId,
         officialEmail: student.officialEmail,
+        rollNumber: student.rollNumber,
         fullName: student.fullName,
         department: student.department,
         verificationStatus: student.verificationStatus,
@@ -186,14 +180,21 @@ class AuthService {
   }
 
   /**
-   * Retrieves profile details of currently authenticated student
+   * Retrieves profile details of currently authenticated student.
    */
   async getProfile(studentId, collegeId) {
     let student = null;
     let college = null;
+
     if (mongoose.connection.readyState === 1) {
-      student = await Student.findOne({ studentId, collegeId });
-      college = await College.findOne({ collegeId });
+      student = await Student.findOne({
+        studentId,
+        collegeId,
+      });
+
+      college = await College.findOne({
+        collegeId,
+      });
     }
 
     if (!student) {
@@ -201,8 +202,10 @@ class AuthService {
         return {
           studentId,
           collegeId,
-          collegeName: 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+          collegeName:
+            'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
           officialEmail: `${studentId}@avih.edu.in`,
+          rollNumber: 'TEST_ROLL_123',
           fullName: 'Test Student',
           department: 'Computer Science and Engineering',
           graduatingYear: 2026,
@@ -212,14 +215,18 @@ class AuthService {
           createdAt: new Date(),
         };
       }
+
       throw new UnauthorizedError('Student not found');
     }
 
     return {
       studentId: student.studentId,
       collegeId: student.collegeId,
-      collegeName: college ? college.name : student.collegeId,
+      collegeName: college
+        ? college.name
+        : student.collegeId,
       officialEmail: student.officialEmail,
+      rollNumber: student.rollNumber,
       fullName: student.fullName,
       department: student.department,
       graduatingYear: student.graduatingYear,
@@ -228,6 +235,28 @@ class AuthService {
       verifiedAt: student.verifiedAt,
       createdAt: student.createdAt,
     };
+  }
+
+  /**
+   * Returns list of available colleges.
+   *
+   * Kept for compatibility with existing APIs.
+   * The login UI no longer uses this.
+   */
+  async getColleges() {
+    if (mongoose.connection.readyState === 1) {
+      return await College.find(
+        { status: 'active' },
+        'collegeId name'
+      ).sort({ name: 1 });
+    }
+
+    return [
+      {
+        collegeId: env.DEFAULT_COLLEGE_ID,
+        name: env.DEFAULT_COLLEGE_NAME,
+      },
+    ];
   }
 }
 

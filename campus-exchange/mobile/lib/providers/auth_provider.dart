@@ -32,36 +32,31 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-  Future<bool> sendVerificationCode(String email) async {
-  _isLoading = true;
-  _errorMessage = null;
-  notifyListeners();
 
-  try {
-    await _authService.sendVerificationCode(
-      officialEmail: email,
-    );
-
-    _isLoading = false;
-    notifyListeners();
-    return true;
-  } catch (e) {
-    _errorMessage = e.toString();
-    _isLoading = false;
-    notifyListeners();
-    return false;
+  Future<List<Map<String, dynamic>>> getColleges() async {
+    try {
+      return await _authService.getColleges();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return [];
+    }
   }
-}
-  Future<bool> verifyOfficialEmail(String email, {String? verificationCode}) async {
+
+  Future<bool> authenticate({
+    required String email,
+    required String rollNumber,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _currentStudent = await _authService.verifyOfficialEmail(
-        officialEmail: email,
-        verificationCode: verificationCode,
+      _currentStudent = await _authService.authenticate(
+        email: email,
+        rollNumber: rollNumber,
       );
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -78,6 +73,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     await _authService.logout();
+
     _currentStudent = null;
     _isLoading = false;
     notifyListeners();

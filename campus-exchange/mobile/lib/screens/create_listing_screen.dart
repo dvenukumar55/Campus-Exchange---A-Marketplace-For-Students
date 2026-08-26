@@ -30,10 +30,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   String _selectedCategory = AppConstants.formCategories.first;
   String _selectedCondition = 'Good';
 
-  // Real selected image files.
   final List<File> _selectedImages = [];
-
-  // References returned by the backend after uploading images.
   final List<String> _photoRefs = [];
 
   bool _isSubmitting = false;
@@ -47,15 +44,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     super.dispose();
   }
 
-  // ------------------------------------------------------------
-  // PICK IMAGE FROM GALLERY
-  // ------------------------------------------------------------
   Future<void> _pickImages() async {
     if (_isSubmitting || _isUploadingImage) return;
 
     try {
-      final List<XFile> pickedImages =
-          await _imagePicker.pickMultiImage(
+      final List<XFile> pickedImages = await _imagePicker.pickMultiImage(
         imageQuality: 85,
         maxWidth: 1600,
       );
@@ -65,10 +58,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       final remainingSlots = 5 - _selectedImages.length;
 
       if (remainingSlots <= 0) {
-        _showMessage(
-          'You can add a maximum of 5 photos.',
-          isError: true,
-        );
+        _showMessage('You can add a maximum of 5 photos.', isError: true);
         return;
       }
 
@@ -77,12 +67,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       setState(() {
         for (final image in imagesToAdd) {
           final file = File(image.path);
-
-          // Prevent the same image from being added twice.
-          final alreadyAdded = _selectedImages.any(
-            (existing) => existing.path == file.path,
-          );
-
+          final alreadyAdded = _selectedImages.any((existing) => existing.path == file.path);
           if (!alreadyAdded) {
             _selectedImages.add(file);
           }
@@ -90,39 +75,23 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       });
 
       if (pickedImages.length > remainingSlots) {
-        _showMessage(
-          'Only 5 photos can be added to one listing.',
-          isError: true,
-        );
+        _showMessage('Only 5 photos can be added to one listing.', isError: true);
       }
     } catch (e) {
-      _showMessage(
-        'Unable to open gallery: $e',
-        isError: true,
-      );
+      _showMessage('Unable to open gallery: $e', isError: true);
     }
   }
 
-  // ------------------------------------------------------------
-  // REMOVE SELECTED IMAGE
-  // ------------------------------------------------------------
   void _removeImage(int index) {
     if (_isSubmitting || _isUploadingImage) return;
-
     setState(() {
       _selectedImages.removeAt(index);
-
-      // If the corresponding image was already uploaded,
-      // remove its reference as well.
       if (index < _photoRefs.length) {
         _photoRefs.removeAt(index);
       }
     });
   }
 
-  // ------------------------------------------------------------
-  // UPLOAD ALL SELECTED IMAGES
-  // ------------------------------------------------------------
   Future<void> _uploadSelectedImages() async {
     if (_selectedImages.isEmpty) {
       throw Exception('Please add at least one item photo.');
@@ -134,16 +103,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
     try {
       _photoRefs.clear();
-
       for (final image in _selectedImages) {
         final photoRef = await _listingService.uploadListingImage(image);
-
         if (photoRef.isEmpty) {
-          throw Exception(
-            'The server did not return a valid photo reference.',
-          );
+          throw Exception('The server did not return a valid photo reference.');
         }
-
         _photoRefs.add(photoRef);
       }
     } finally {
@@ -155,33 +119,20 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     }
   }
 
-  // ------------------------------------------------------------
-  // TEST PRESET
-  // ------------------------------------------------------------
   void _loadJavaBookPreset() {
     setState(() {
       _titleController.text = 'Java Programming Book';
       _priceController.text = '500';
       _selectedCategory = 'Academic / Books';
       _selectedCondition = 'Good';
-      _descriptionController.text =
-          'Java programming book in good condition. Covers core concepts, OOP, and data structures for 2nd/3rd year CSE.';
+      _descriptionController.text = 'Java programming book in good condition. Covers core concepts, OOP, and data structures for 2nd/3rd year CSE.';
     });
   }
 
-  // ------------------------------------------------------------
-  // CREATE LISTING
-  // ------------------------------------------------------------
   Future<void> _submitListing() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
+    if (!_formKey.currentState!.validate()) return;
     if (_selectedImages.isEmpty) {
-      _showMessage(
-        'Please add at least one item photo.',
-        isError: true,
-      );
+      _showMessage('Please add at least one item photo.', isError: true);
       return;
     }
 
@@ -190,16 +141,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     });
 
     try {
-      // Upload real images first.
       await _uploadSelectedImages();
-
       if (_photoRefs.isEmpty) {
         throw Exception('No uploaded photo references were returned.');
       }
 
-      final listingProvider =
-          Provider.of<ListingProvider>(context, listen: false);
-
+      final listingProvider = Provider.of<ListingProvider>(context, listen: false);
       final Listing listing = await listingProvider.createListing(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -210,24 +157,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       );
 
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${listing.title} was published successfully!',
-          ),
-          backgroundColor: AppTheme.secondaryColor,
+          content: Text('${listing.title} was published successfully!', style: const TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: AppTheme.successColor,
         ),
       );
-
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-
-      _showMessage(
-        'Failed to create listing: ${e.toString()}',
-        isError: true,
-      );
+      _showMessage('Failed to create listing: ${e.toString()}', isError: true);
     } finally {
       if (mounted) {
         setState(() {
@@ -237,392 +176,180 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     }
   }
 
-  // ------------------------------------------------------------
-  // MESSAGE
-  // ------------------------------------------------------------
-  void _showMessage(
-    String message, {
-    bool isError = false,
-  }) {
+  void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? AppTheme.errorColor : AppTheme.secondaryColor,
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // BUILD
-  // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Create Item Listing'),
+        title: const Text('Sell an Item', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           TextButton(
             onPressed: _isSubmitting ? null : _loadJavaBookPreset,
-            child: const Text(
-              'Fill Preset',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Preset', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ------------------------------------------------
-              // PHOTOS
-              // ------------------------------------------------
-              const Text(
-                'Item Photos (Mandatory)',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              const Text(
-                'Add up to 5 photos from your phone gallery.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
+              _buildSectionTitle('Photos'),
+              const SizedBox(height: 12),
               Container(
-                height: 125,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                  ),
-                ),
+                height: 120,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.all(12),
                   children: [
-                    // Selected real images
-                    ..._selectedImages.asMap().entries.map(
-                      (entry) {
-                        final index = entry.key;
-                        final image = entry.value;
-
-                        return Container(
-                          width: 90,
-                          height: 100,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppTheme.primaryColor
-                                  .withOpacity(0.3),
-                            ),
+                    ..._selectedImages.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final image = entry.value;
+                      return Container(
+                        width: 100,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          image: DecorationImage(
+                            image: FileImage(image),
+                            fit: BoxFit.cover,
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.file(
-                                  image,
-                                  fit: BoxFit.cover,
-                                ),
-
-                                // Image number
-                                Positioned(
-                                  left: 5,
-                                  bottom: 5,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      borderRadius:
-                                          BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: () => _removeImage(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
                                   ),
+                                  child: const Icon(Icons.close, size: 16, color: Colors.white),
                                 ),
-
-                                // Remove button
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: GestureDetector(
-                                    onTap: () => _removeImage(index),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black54,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        size: 15,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Add photo button
+                          ],
+                        ),
+                      );
+                    }),
                     if (_selectedImages.length < 5)
-                      InkWell(
+                      GestureDetector(
                         onTap: _pickImages,
-                        borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          width: 90,
+                          width: 100,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFFCBD5E1),
-                            ),
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 2),
                           ),
-                          child: Column(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.add_a_photo,
-                                color: AppTheme.primaryColor,
-                                size: 28,
-                              ),
-                              const SizedBox(height: 5),
-                              const Text(
-                                'Add Photo',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${_selectedImages.length}/5',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
+                          child: const Center(
+                            child: Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 32),
                           ),
                         ),
                       ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 18),
-
-              // ------------------------------------------------
-              // TITLE
-              // ------------------------------------------------
+              const SizedBox(height: 32),
+              _buildSectionTitle('Details'),
+              const SizedBox(height: 16),
               CustomTextField(
                 controller: _titleController,
                 label: 'Item Title',
-                hint: 'e.g. Java Programming Book, Drafter kit',
+                hint: 'e.g. Java Programming Book',
                 validator: (val) {
-                  if (val == null || val.trim().length < 3) {
-                    return 'Title must be at least 3 characters';
-                  }
+                  if (val == null || val.trim().length < 3) return 'Title must be at least 3 characters';
                   return null;
                 },
               ),
-
-              const SizedBox(height: 16),
-
-              // ------------------------------------------------
-              // PRICE
-              // ------------------------------------------------
+              const SizedBox(height: 20),
               CustomTextField(
                 controller: _priceController,
                 label: 'Selling Price (₹)',
                 hint: 'e.g. 500',
                 keyboardType: TextInputType.number,
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Price is required';
-                  }
-
+                  if (val == null || val.trim().isEmpty) return 'Price is required';
                   final price = double.tryParse(val.trim());
-
-                  if (price == null || price < 0) {
-                    return 'Enter a valid non-negative amount';
-                  }
-
+                  if (price == null || price < 0) return 'Enter a valid amount';
                   return null;
                 },
               ),
-
-              const SizedBox(height: 16),
-
-              // ------------------------------------------------
-              // CATEGORY
-              // ------------------------------------------------
-              const Text(
-                'Category',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
+              const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
-                decoration: const InputDecoration(),
-                items: AppConstants.formCategories.map(
-                  (category) {
-                    return DropdownMenuItem(
-                      value: category,
-                      child: Text(
-                        category,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    );
-                  },
-                ).toList(),
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedCategory = value;
-                          });
-                        }
-                      },
-              ),
-
-              const SizedBox(height: 16),
-
-              // ------------------------------------------------
-              // CONDITION
-              // ------------------------------------------------
-              const Text(
-                'Condition',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                 ),
+                items: AppConstants.formCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCategory = v!),
               ),
-
-              const SizedBox(height: 6),
-
+              const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedCondition,
-                decoration: const InputDecoration(),
-                items: AppConstants.formConditions.map(
-                  (condition) {
-                    return DropdownMenuItem(
-                      value: condition,
-                      child: Text(
-                        condition,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    );
-                  },
-                ).toList(),
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedCondition = value;
-                          });
-                        }
-                      },
+                decoration: InputDecoration(
+                  labelText: 'Condition',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+                items: AppConstants.formConditions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCondition = v!),
               ),
-
-              const SizedBox(height: 16),
-
-              // ------------------------------------------------
-              // DESCRIPTION
-              // ------------------------------------------------
+              const SizedBox(height: 20),
               CustomTextField(
                 controller: _descriptionController,
-                label: 'Description & Item Details',
-                hint:
-                    'Describe condition, edition, accessories included...',
+                label: 'Description',
+                hint: 'Describe condition, etc.',
                 maxLines: 4,
                 validator: (val) {
-                  if (val == null || val.trim().length < 5) {
-                    return 'Description must be at least 5 characters';
-                  }
+                  if (val == null || val.trim().length < 5) return 'Description must be at least 5 characters';
                   return null;
                 },
               ),
-
-              const SizedBox(height: 28),
-
-              // ------------------------------------------------
-              // SUBMIT
-              // ------------------------------------------------
+              const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: _isSubmitting
-                    ? null
-                    : _submitListing,
+                onPressed: _isSubmitting ? null : _submitListing,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                ),
                 child: _isSubmitting
-                    ? Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _isUploadingImage
-                                ? 'Uploading photos...'
-                                : 'Publishing listing...',
-                          ),
-                        ],
-                      )
-                    : const Text(
-                        'Post Listing to Campus Marketplace',
-                      ),
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
+                    : const Text('Post Listing'),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimary,
       ),
     );
   }

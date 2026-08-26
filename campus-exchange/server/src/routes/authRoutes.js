@@ -5,8 +5,8 @@ const { validateVerifyRequest } = require('../validators/authValidators');
 const { authenticate } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 
-
-router.post('/send-code', authLimiter, validateVerifyRequest, authController.sendCode);
+// GET /api/v1/auth/colleges - Retrieve list of available colleges
+router.get('/colleges', authLimiter, authController.getColleges);
 
 // POST /api/v1/auth/verify - Verify student college email and receive JWT
 router.post('/verify', authLimiter, validateVerifyRequest, authController.verify);

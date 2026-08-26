@@ -14,14 +14,14 @@ class AuthController {
       next(error);
     }
   }
-     /**
-   * POST /api/v1/auth/send-code
-   * Generates a development OTP for the official college email.
+  /**
+   * GET /api/v1/auth/colleges
+   * Returns list of supported colleges
    */
-  async sendCode(req, res, next) {
+  async getColleges(req, res, next) {
     try {
-      const result = await authService.sendVerificationCode(req.validatedAuth);
-      return sendSuccess(res, 200, result);
+      const colleges = await authService.getColleges();
+      return sendSuccess(res, 200, { colleges });
     } catch (error) {
       next(error);
     }

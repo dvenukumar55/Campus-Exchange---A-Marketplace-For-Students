@@ -417,7 +417,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           isScrollable: true,
           labelColor: Colors.white,
           unselectedLabelColor: const Color(0xFF93C5FD),
-          indicatorColor: AppTheme.accentColor,
+          indicatorColor: AppTheme.warningColor,
           tabs: const [
             Tab(
               icon: Icon(Icons.dashboard_outlined, size: 20),
@@ -502,7 +502,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                   value: '$_activeListings',
                   subtitle: 'Currently listed',
                   icon: Icons.storefront,
-                  color: AppTheme.secondaryColor,
+                  color: AppTheme.tealAccent,
                 ),
                 _buildKpiCard(
                   title: 'Pending Reports',
@@ -1815,7 +1815,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               icon,
               size: 48,
               color:
-                  AppTheme.secondaryColor,
+                  AppTheme.tealAccent,
             ),
             const SizedBox(height: 12),
             Text(

@@ -1,34 +1,78 @@
-require('dotenv').config();
+require('dotenv').config({
+  path: require('path').join(__dirname, '.env'),
+});
 
 const mongoose = require('mongoose');
 const Student = require('./src/models/Student');
 
-async function createAdmin() {
+async function createOrUpdateAdmin() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB.');
 
-    const email = 'admin@avih.edu.in';
+    const adminStudentId = 'admin_avih_001';
+    const adminEmail = 'kittud0005@gmail.com';
+    const adminRollNumber = 'ADMIN001';
+    const collegeId = 'avih-gunthapalli';
 
-    const existing = await Student.findOne({
-      officialEmail: email,
+    // Find the existing admin by student ID
+    let admin = await Student.findOne({
+      studentId: adminStudentId,
     });
 
-    if (existing) {
-      console.log('Account already exists:');
+    if (admin) {
+      // Update existing admin account
+      admin.collegeId = collegeId;
+      admin.officialEmail = adminEmail;
+      admin.rollNumber = adminRollNumber;
+      admin.fullName = 'Campus Exchange Admin';
+      admin.department = 'Administration';
+      admin.graduatingYear = 2026;
+      admin.verificationStatus = 'verified';
+      admin.accountStatus = 'active';
+      admin.role = 'admin';
+      admin.verifiedAt = admin.verifiedAt || new Date();
+
+      await admin.save();
+
+      console.log('Admin account updated successfully:');
       console.log({
-        email: existing.officialEmail,
-        role: existing.role,
-        studentId: existing.studentId,
+        studentId: admin.studentId,
+        email: admin.officialEmail,
+        rollNumber: admin.rollNumber,
+        role: admin.role,
+        collegeId: admin.collegeId,
+        verificationStatus: admin.verificationStatus,
+        accountStatus: admin.accountStatus,
       });
 
       await mongoose.disconnect();
       return;
     }
 
-    const admin = await Student.create({
-      studentId: 'admin_avih_001',
-      collegeId: 'avih-gunthapalli',
-      officialEmail: email,
+    // Make sure the new email is not already used by another account
+    const emailExists = await Student.findOne({
+      officialEmail: adminEmail,
+    });
+
+    if (emailExists) {
+      console.log('The email is already registered to another account:');
+      console.log({
+        studentId: emailExists.studentId,
+        email: emailExists.officialEmail,
+        role: emailExists.role,
+      });
+
+      await mongoose.disconnect();
+      return;
+    }
+
+    // Create new admin
+    admin = await Student.create({
+      studentId: adminStudentId,
+      collegeId: collegeId,
+      officialEmail: adminEmail,
+      rollNumber: adminRollNumber,
       fullName: 'Campus Exchange Admin',
       department: 'Administration',
       graduatingYear: 2026,
@@ -42,6 +86,7 @@ async function createAdmin() {
     console.log({
       studentId: admin.studentId,
       email: admin.officialEmail,
+      rollNumber: admin.rollNumber,
       role: admin.role,
       collegeId: admin.collegeId,
       verificationStatus: admin.verificationStatus,
@@ -50,9 +95,10 @@ async function createAdmin() {
 
     await mongoose.disconnect();
   } catch (error) {
-    console.error('Failed to create admin:', error);
+    console.error('Failed to create/update admin:', error);
+    await mongoose.disconnect().catch(() => {});
     process.exit(1);
   }
 }
 
-createAdmin();
+createOrUpdateAdmin();

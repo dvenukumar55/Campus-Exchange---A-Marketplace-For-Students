@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 import '../models/listing.dart';
 import '../providers/listing_provider.dart';
-import '../widgets/custom_text_field.dart';
 
 class EditListingScreen extends StatefulWidget {
   final Listing listing;
 
-  const EditListingScreen({Key? key, required this.listing}) : super(key: key);
+  const EditListingScreen({
+    Key? key,
+    required this.listing,
+  }) : super(key: key);
 
   @override
   State<EditListingScreen> createState() => _EditListingScreenState();
@@ -17,152 +20,136 @@ class EditListingScreen extends StatefulWidget {
 
 class _EditListingScreenState extends State<EditListingScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  late TextEditingController _priceController;
-  late TextEditingController _descriptionController;
-  late String _selectedCategory;
-  late String _selectedCondition;
-  bool _isSaving = false;
+
+  late String _selectedStatus;
+
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.listing.title);
-    _priceController = TextEditingController(text: widget.listing.price.toStringAsFixed(0));
-    _descriptionController = TextEditingController(text: widget.listing.description);
-    _selectedCategory = widget.listing.category;
-    _selectedCondition = widget.listing.condition;
+    _selectedStatus = widget.listing.status;
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _priceController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
+  Future<void> _updateListing() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  Future<void> _handleCloseOrSell(String finalStatus) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(finalStatus == 'sold' ? 'Mark as Sold?' : 'Close Listing?'),
-        content: Text(
-          finalStatus == 'sold'
-              ? 'This will record a completed campus transaction and move the listing to Sold.'
-              : 'This will close the listing from the campus marketplace feed.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: finalStatus == 'sold' ? AppTheme.secondaryColor : AppTheme.errorColor,
-              minimumSize: const Size(100, 40),
-            ),
-            child: Text(finalStatus == 'sold' ? 'Confirm Sale' : 'Close'),
-          ),
-        ],
-      ),
-    );
+    if (_selectedStatus == widget.listing.status) {
+      Navigator.pop(context);
+      return;
+    }
 
-    if (confirm != true) return;
+    setState(() {
+      _isSubmitting = true;
+    });
 
     try {
       final listingProvider = Provider.of<ListingProvider>(context, listen: false);
-      await listingProvider.closeListing(widget.listing.listingId, finalStatus);
+      
+      final finalStatus = _selectedStatus.toLowerCase() == 'sold' ? 'sold' : 'active';
+
+      await listingProvider.closeListing(
+        widget.listing.listingId,
+        finalStatus,
+      );
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Listing marked as $finalStatus successfully!'),
-          backgroundColor: AppTheme.secondaryColor,
+          content: const Text('Listing status updated successfully!', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: finalStatus == 'sold' ? AppTheme.tealAccent : AppTheme.successColor,
         ),
       );
+
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: AppTheme.errorColor),
+        SnackBar(
+          content: Text('Failed to update status: ${e.toString()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: AppTheme.errorColor,
+        ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Manage Listing'),
+        title: const Text('Manage Listing', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CustomTextField(
-                controller: _titleController,
-                label: 'Item Title',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _priceController,
-                label: 'Price (₹)',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _descriptionController,
-                label: 'Description',
-                maxLines: 4,
-              ),
-              const SizedBox(height: 28),
-
-              // Action buttons for lifecycle closure
-              if (widget.listing.isActive) ...[
-                const Text(
-                  'Listing Status Actions',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              Text(
+                'Managing: ${widget.listing.title}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _handleCloseOrSell('sold'),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Mark as Sold (Transaction Completed)'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('Listing Status'),
+              const SizedBox(height: 12),
+              const Text('Only changing status is supported. Contact campus moderators if you need to delete a listing.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.dividerColor),
                 ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => _handleCloseOrSell('closed'),
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Close / Delist Item'),
-                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
-                ),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: AppTheme.textSecondary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'This listing is ${widget.listing.status.toUpperCase()} and cannot be modified.',
-                          style: const TextStyle(color: AppTheme.textSecondary),
-                        ),
-                      ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedStatus,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'active', child: Text('Active (Available)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.successColor))),
+                      DropdownMenuItem(value: 'sold', child: Text('Sold (Unavailable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.errorColor))),
                     ],
+                    onChanged: _isSubmitting ? null : (v) => setState(() => _selectedStatus = v!),
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : _updateListing,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
+                    : const Text('Update Status'),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimary,
       ),
     );
   }
