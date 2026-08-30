@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_exchange/models/listing.dart';
+import 'package:campus_exchange/models/notification_model.dart';
 import 'package:campus_exchange/models/student.dart';
 
 void main() {
@@ -30,6 +31,30 @@ void main() {
       expect(listing.category, 'Academic / Books');
       expect(listing.isActive, true);
       expect(listing.photoRefs.first, 'java_book_cover.jpg');
+    });
+
+    test('NotificationModel correctly deserializes and copies state', () {
+      final json = {
+        'notificationId': 'notif_1001',
+        'recipientStudentId': 'std_user_b',
+        'collegeId': 'avih-gunthapalli',
+        'listingId': 'list_java_book_1',
+        'title': 'New listing posted',
+        'message': 'Student A posted Java Programming Book for ₹500',
+        'type': 'NEW_LISTING',
+        'isRead': false,
+        'createdAt': '2026-08-30T10:00:00.000Z',
+      };
+
+      final notif = NotificationModel.fromJson(json);
+      expect(notif.notificationId, 'notif_1001');
+      expect(notif.title, 'New listing posted');
+      expect(notif.message, 'Student A posted Java Programming Book for ₹500');
+      expect(notif.isRead, false);
+
+      final readNotif = notif.copyWith(isRead: true, readAt: DateTime.now());
+      expect(readNotif.isRead, true);
+      expect(readNotif.readAt, isNotNull);
     });
 
     test('Student model verification status check', () {

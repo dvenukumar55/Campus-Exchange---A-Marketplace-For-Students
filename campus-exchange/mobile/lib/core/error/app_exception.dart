@@ -11,30 +11,30 @@ class AppException implements Exception {
 }
 
 class NetworkException extends AppException {
-  NetworkException(String message) : super(message, code: 'NETWORK_ERROR');
+  NetworkException(super.message) : super(code: 'NETWORK_ERROR');
 }
 
 class UnauthorizedException extends AppException {
-  UnauthorizedException(String message, {String? requestId})
-      : super(message, code: 'UNAUTHENTICATED', requestId: requestId);
+  UnauthorizedException(super.message, {super.requestId})
+      : super(code: 'UNAUTHENTICATED');
 }
 
 class UnverifiedException extends AppException {
-  UnverifiedException(String message, {String? requestId})
-      : super(message, code: 'UNVERIFIED_STUDENT', requestId: requestId);
+  UnverifiedException(super.message, {super.requestId})
+      : super(code: 'UNVERIFIED_STUDENT');
 }
 
 class CrossCollegeException extends AppException {
-  CrossCollegeException(String message, {String? requestId})
-      : super(message, code: 'CROSS_COLLEGE_DENIED', requestId: requestId);
+  CrossCollegeException(super.message, {super.requestId})
+      : super(code: 'CROSS_COLLEGE_DENIED');
 }
 
 class NotFoundException extends AppException {
-  NotFoundException(String message, {String? requestId})
-      : super(message, code: 'NOT_FOUND', requestId: requestId);
+  NotFoundException(super.message, {super.requestId})
+      : super(code: 'NOT_FOUND');
 }
 
 class ConflictException extends AppException {
-  ConflictException(String message, {String? requestId})
-      : super(message, code: 'CONFLICT', requestId: requestId);
+  ConflictException(super.message, {super.requestId})
+      : super(code: 'CONFLICT');
 }

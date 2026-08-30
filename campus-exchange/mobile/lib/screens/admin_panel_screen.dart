@@ -1,20 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 
+import '../core/network/api_client.dart';
 import '../core/theme/app_theme.dart';
-import '../models/listing.dart';
 import '../models/report.dart';
 import '../providers/auth_provider.dart';
-import '../providers/listing_provider.dart';
-import '../routes/app_routes.dart';
 import '../services/report_service.dart';
 
 class AdminPanelScreen extends StatefulWidget {
-  const AdminPanelScreen({Key? key}) : super(key: key);
+  const AdminPanelScreen({super.key});
 
   @override
   State<AdminPanelScreen> createState() => _AdminPanelScreenState();
@@ -25,6 +20,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   late TabController _tabController;
 
   final ReportService _reportService = ReportService();
+  final ApiClient _apiClient = ApiClient();
 
   List<Report> _reports = [];
   List<Map<String, dynamic>> _students = [];
@@ -70,51 +66,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // BACKEND BASE URL
-  // ---------------------------------------------------------------------------
-
-  String get _baseUrl {
-    // Android emulator -> computer localhost
-    return 'http://10.0.2.2:5000/api/v1';
-  }
-
-  Future<Map<String, String>> _headers() async {
-    final authProvider = Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    );
-
-    /*
-     * AuthService stores the JWT.
-     * We use the same token through the auth service/provider flow.
-     *
-     * The current backend authentication is already working for your app.
-     */
-    final token = await _getStoredToken(authProvider);
-
-    return {
-      'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
-    };
-  }
-
-  Future<String?> _getStoredToken(AuthProvider authProvider) async {
-    /*
-     * We obtain the token from the AuthService's stored session.
-     * If your AuthService exposes the token differently, the existing
-     * authenticated API calls remain unaffected.
-     */
-    try {
-      final dynamic service = authProvider;
-      final result = await service.getToken();
-      return result?.toString();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // LOAD EVERYTHING
   // ---------------------------------------------------------------------------
 
@@ -140,20 +91,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/admin/dashboard'),
-        headers: await _headers(),
+      final response = await _apiClient.get(
+        '/admin/dashboard',
       );
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-          'Dashboard request failed: ${response.statusCode}',
-        );
-      }
-
-      final decoded = jsonDecode(response.body);
-
-      final data = decoded['data'] ?? {};
+      final data = response['data'] ?? {};
 
       if (!mounted) return;
 
@@ -173,10 +115,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         _pendingReports = reports['pending'] ?? 0;
 
         final market = data['market'] ?? {};
-        _marketVolume =
-            (market['volume'] ?? 0).toDouble();
+        _marketVolume = (market['volume'] ?? 0).toDouble();
 
         _isLoadingDashboard = false;
+        _errorMessage = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -200,20 +142,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/admin/students'),
-        headers: await _headers(),
+      final response = await _apiClient.get(
+        '/admin/students',
       );
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-          'Students request failed: ${response.statusCode}',
-        );
-      }
-
-      final decoded = jsonDecode(response.body);
-
-      final List<dynamic> data = decoded['data'] ?? [];
+      final List<dynamic> data = response['data'] ?? [];
 
       if (!mounted) return;
 
@@ -226,7 +159,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
         _isLoadingStudents = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -276,20 +209,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/admin/audit-logs'),
-        headers: await _headers(),
+      final response = await _apiClient.get(
+        '/admin/audit-logs',
       );
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-          'Audit log request failed: ${response.statusCode}',
-        );
-      }
-
-      final decoded = jsonDecode(response.body);
-
-      final List<dynamic> data = decoded['data'] ?? [];
+      final List<dynamic> data = response['data'] ?? [];
 
       if (!mounted) return;
 
@@ -323,20 +247,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/admin/listings'),
-        headers: await _headers(),
+      final response = await _apiClient.get(
+        '/admin/listings',
       );
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-          'Listings request failed: ${response.statusCode}',
-        );
-      }
-
-      final decoded = jsonDecode(response.body);
-
-      final List<dynamic> data = decoded['data'] ?? [];
+      final List<dynamic> data = response['data'] ?? [];
 
       if (!mounted) return;
 
@@ -368,46 +283,75 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     final student = authProvider.currentStudent;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          tooltip: 'Back to Marketplace',
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        titleSpacing: 0,
+        title: Row(
+
           children: [
-            Row(
-              children: [
-                const Text(
-                  'Campus Admin Command Center',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Flexible(
+                        child: Text(
+                          'Admin Command Center',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: const Color(0xFF334155),
+                          ),
+                        ),
+                        child: const Text(
+                          'MODERATION',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF38BDF8),
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'ADMIN',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF166534),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${student?.fullName ?? "Administrator"} • ${student?.officialEmail ?? ""}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
                     ),
                   ),
-                ),
-              ],
-            ),
-            Text(
-              '${student?.fullName ?? "Administrator"} • '
-              '${student?.officialEmail ?? ""}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF93C5FD),
+                ],
               ),
             ),
           ],
@@ -416,31 +360,54 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           controller: _tabController,
           isScrollable: true,
           labelColor: Colors.white,
-          unselectedLabelColor: const Color(0xFF93C5FD),
-          indicatorColor: AppTheme.warningColor,
+          unselectedLabelColor: const Color(0xFF94A3B8),
+          indicatorColor: const Color(0xFF38BDF8),
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(
-              icon: Icon(Icons.dashboard_outlined, size: 20),
+              icon: Icon(
+                Icons.dashboard_outlined,
+                size: 18,
+              ),
               text: 'Overview',
             ),
             Tab(
-              icon: Icon(Icons.people_outline, size: 20),
-              text: 'Users',
+              icon: Icon(
+                Icons.people_outline_rounded,
+                size: 18,
+              ),
+              text: 'Students',
             ),
             Tab(
-              icon: Icon(Icons.inventory_2_outlined, size: 20),
+              icon: Icon(
+                Icons.inventory_2_outlined,
+                size: 18,
+              ),
               text: 'Listings',
             ),
             Tab(
-              icon: Icon(Icons.gavel_outlined, size: 20),
+              icon: Icon(
+                Icons.flag_outlined,
+                size: 18,
+              ),
               text: 'Reports',
             ),
             Tab(
-              icon: Icon(Icons.history_outlined, size: 20),
+              icon: Icon(
+                Icons.history_rounded,
+                size: 18,
+              ),
               text: 'Audit Logs',
             ),
             Tab(
-              icon: Icon(Icons.settings_outlined, size: 20),
+              icon: Icon(
+                Icons.settings_outlined,
+                size: 18,
+              ),
               text: 'Settings',
             ),
           ],
@@ -461,31 +428,36 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // OVERVIEW
+  // OVERVIEW TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildOverviewTab() {
     if (_isLoadingDashboard) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+        ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: _loadAllAdminData,
+      color: AppTheme.royalBlue,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_errorMessage != null)
-              _buildErrorCard(),
+            if (_errorMessage != null) _buildErrorCard(),
 
             GridView.count(
               crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 1.35,
@@ -493,136 +465,152 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 _buildKpiCard(
                   title: 'Verified Students',
                   value: '$_verifiedStudents',
-                  subtitle: 'Real registered students',
-                  icon: Icons.verified_user,
-                  color: AppTheme.primaryColor,
+                  subtitle: 'Registered AVIH peers',
+                  icon: Icons.verified_user_outlined,
+                  color: AppTheme.royalBlue,
                 ),
                 _buildKpiCard(
                   title: 'Active Items',
                   value: '$_activeListings',
-                  subtitle: 'Currently listed',
-                  icon: Icons.storefront,
-                  color: AppTheme.tealAccent,
+                  subtitle: 'Currently available',
+                  icon: Icons.storefront_outlined,
+                  color: AppTheme.successColor,
                 ),
                 _buildKpiCard(
                   title: 'Pending Reports',
                   value: '$_pendingReports',
-                  subtitle: 'Requires moderation',
-                  icon: Icons.warning_amber_rounded,
-                  color: const Color(0xFFE11D48),
+                  subtitle: 'Requires action',
+                  icon: Icons.flag_outlined,
+                  color: AppTheme.errorColor,
                 ),
                 _buildKpiCard(
                   title: 'Market Volume',
                   value:
                       '₹${_marketVolume.toStringAsFixed(0)}',
-                  subtitle: 'Listing value',
-                  icon: Icons.currency_rupee,
-                  color: const Color(0xFFD97706),
+                  subtitle: 'Total listed value',
+                  icon: Icons.currency_rupee_rounded,
+                  color: AppTheme.cyanAccent,
                 ),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Campus Information',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _college?['name'] ??
-                          'No college information',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'College ID: '
-                      '${_college?['collegeId'] ?? "—"}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Verified students: $_verifiedStudents',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Total students: $_totalStudents',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppTheme.dividerColor,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F172A)
+                        .withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Campus Pilot Scope',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _college?['name'] ??
+                        'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'College ID: ${_college?['collegeId'] ?? "avih-gunthapalli"}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Verified Students: $_verifiedStudents of $_totalStudents registered',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 16),
 
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Marketplace Statistics',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _statRow(
-                      'Active listings',
-                      '$_activeListings',
-                    ),
-                    _statRow(
-                      'Sold listings',
-                      '$_soldListings',
-                    ),
-                    _statRow(
-                      'Closed listings',
-                      '$_closedListings',
-                    ),
-                    _statRow(
-                      'Pending reports',
-                      '$_pendingReports',
-                    ),
-                  ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppTheme.dividerColor,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F172A)
+                        .withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Marketplace Statistics',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _statRow(
+                    'Active Listings',
+                    '$_activeListings',
+                  ),
+                  _statRow(
+                    'Sold / Exchanged Listings',
+                    '$_soldListings',
+                  ),
+                  _statRow(
+                    'Closed Listings',
+                    '$_closedListings',
+                  ),
+                  _statRow(
+                    'Pending Incident Reports',
+                    '$_pendingReports',
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 16),
 
             _buildRecentAuditStrip(),
+
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -632,84 +620,98 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   Widget _buildRecentAuditStrip() {
     final logs = _auditLogs.take(3).toList();
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.dividerColor,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A)
+                .withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Recent Audit Log Activity',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingAuditLogs)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          else if (logs.isEmpty)
             const Text(
-              'Recent Audit Activity',
+              'No audit activity recorded yet.',
               style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            )
+          else
+            ...logs.map(
+              (log) => Padding(
+                padding:
+                    const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.circle,
+                      size: 6,
+                      color: AppTheme.royalBlue,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            log['eventType']
+                                    ?.toString() ??
+                                'EVENT',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            _eventDescription(log),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color:
+                                  AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            if (_isLoadingAuditLogs)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (logs.isEmpty)
-              const Text(
-                'No audit activity recorded yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
-              )
-            else
-              ...logs.map(
-                (log) => Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: AppTheme.primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              log['eventType']?.toString() ??
-                                  'EVENT',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _eventDescription(log),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color:
-                                    AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -726,21 +728,22 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
     if (metadata is Map &&
         metadata['warningCount'] != null) {
-      return 'Warning count: '
-          '${metadata['warningCount']}';
+      return 'Warning count: ${metadata['warningCount']}';
     }
 
     return 'Campus activity recorded.';
   }
 
   // ---------------------------------------------------------------------------
-  // USERS
+  // USERS TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildUsersTab() {
     if (_isLoadingStudents) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -754,214 +757,209 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
     return RefreshIndicator(
       onRefresh: _loadStudents,
+      color: AppTheme.royalBlue,
       child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         itemCount: _students.length,
         itemBuilder: (context, index) {
           final st = _students[index];
 
           final name =
-              st['fullName']?.toString() ??
-                  'Student';
-
+              st['fullName']?.toString() ?? 'Student';
           final email =
-              st['officialEmail']?.toString() ??
-                  '';
-
+              st['officialEmail']?.toString() ?? '';
+          final rollNumber =
+              st['rollNumber']?.toString() ?? '';
           final department =
               st['department']?.toString() ??
                   'General Engineering';
-
           final role =
-              st['role']?.toString() ??
-                  'student';
-
+              st['role']?.toString() ?? 'student';
           final status =
               st['accountStatus']?.toString() ??
                   'active';
-
           final warningCount =
               st['warningCount'] ?? 0;
 
           final isAdmin = role == 'admin';
-          final isModerator = role == 'moderator';
 
-          return Card(
-            margin:
-                const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(12),
+          return Container(
+            margin: const EdgeInsets.only(
+              bottom: 10,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor:
-                            isAdmin
-                                ? const Color(
-                                    0xFF1E3A8A,
-                                  )
-                                : isModerator
-                                    ? const Color(
-                                        0xFF7C3AED,
-                                      )
-                                    : const Color(
-                                        0xFFE2E8F0,
-                                      ),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.dividerColor,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A)
+                      .withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration:
+                          const BoxDecoration(
+                        gradient:
+                            AppTheme.heroCardGradient,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
                         child: Text(
                           name.isNotEmpty
                               ? name
                                   .substring(0, 1)
                                   .toUpperCase()
                               : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight:
+                                FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight:
+                                  FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            email,
+                            style:
+                                const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme
+                                  .textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _roleBadge(role),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                Text(
+                  rollNumber.isNotEmpty
+                      ? 'Roll No: $rollNumber • Dept: $department'
+                      : 'Dept: $department',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+
+                const SizedBox(height: 2),
+
+                Text(
+                  'Status: ${status.toUpperCase()} • Warnings: $warningCount',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        FontWeight.w600,
+                    color: status == 'suspended'
+                        ? AppTheme.errorColor
+                        : AppTheme.textSecondary,
+                  ),
+                ),
+
+                if (!isAdmin) ...[
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () =>
+                            _warnStudent(
+                          st['studentId'].toString(),
+                          name,
+                          rollNumber: rollNumber,
+                        ),
+                        child: const Text(
+                          'Issue Warning',
                           style: TextStyle(
                             color:
-                                isAdmin ||
-                                        isModerator
-                                    ? Colors.white
-                                    : AppTheme
-                                        .primaryColor,
+                                AppTheme.warningColor,
                             fontWeight:
-                                FontWeight.bold,
+                                FontWeight.w700,
                           ),
                         ),
                       ),
-
-                      const SizedBox(width: 10),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style:
-                                  const TextStyle(
-                                fontWeight:
-                                    FontWeight.bold,
-                                fontSize: 14,
-                              ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed:
+                            status == 'suspended'
+                                ? null
+                                : () =>
+                                    _blockStudent(
+                                  st['studentId']
+                                      .toString(),
+                                  name,
+                                  rollNumber: rollNumber,
+                                ),
+                        style:
+                            OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                            color: Color(
+                              0xFFFECACA,
                             ),
-                            Text(
-                              email,
-                              style:
-                                  const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme
-                                    .textSecondary,
-                              ),
-                            ),
-                          ],
+                          ),
+                          backgroundColor:
+                              const Color(
+                            0xFFFEF2F2,
+                          ),
+                          minimumSize:
+                              const Size(90, 36),
+                        ),
+                        child: const Text(
+                          'Block User',
+                          style: TextStyle(
+                            color:
+                                AppTheme.errorColor,
+                            fontSize: 12,
+                            fontWeight:
+                                FontWeight.w700,
+                          ),
                         ),
                       ),
-
-                      _roleBadge(role),
                     ],
                   ),
-
-                  const SizedBox(height: 10),
-
-                  Text(
-                    'Department: $department',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color:
-                          AppTheme.textSecondary,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Status: ${status.toUpperCase()}'
-                    ' • Warnings: $warningCount',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: status ==
-                              'suspended'
-                          ? Colors.red
-                          : AppTheme
-                              .textSecondary,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Student ID: '
-                    '${st['studentId'] ?? "—"}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppTheme.textSecondary,
-                    ),
-                  ),
-
-                  if (!isAdmin) ...[
-                    const Divider(height: 18),
-
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () =>
-                              _warnStudent(
-                                st['studentId']
-                                    .toString(),
-                                name,
-                              ),
-                          child: const Text(
-                            'Issue Warning',
-                            style: TextStyle(
-                              color:
-                                  Color(0xFFD97706),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        OutlinedButton(
-                          onPressed:
-                              status == 'suspended'
-                                  ? null
-                                  : () =>
-                                      _blockStudent(
-                                        st['studentId']
-                                            .toString(),
-                                        name,
-                                      ),
-                          style:
-                              OutlinedButton.styleFrom(
-                            side:
-                                const BorderSide(
-                              color:
-                                  Color(0xFFE11D48),
-                            ),
-                          ),
-                          child: const Text(
-                            'Block User',
-                            style: TextStyle(
-                              color:
-                                  Color(0xFFE11D48),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
           );
         },
@@ -977,17 +975,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     switch (role) {
       case 'admin':
         background =
-            const Color(0xFFDBEAFE);
-        textColor =
-            const Color(0xFF1E3A8A);
+            const Color(0xFFEFF6FF);
+        textColor = AppTheme.royalBlue;
         label = 'ADMIN';
         break;
 
       case 'moderator':
         background =
-            const Color(0xFFEDE9FE);
-        textColor =
-            const Color(0xFF7C3AED);
+            const Color(0xFFEFF6FF);
+        textColor = AppTheme.cyanAccent;
         label = 'MODERATOR';
         break;
 
@@ -1013,7 +1009,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         label,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w800,
           color: textColor,
         ),
       ),
@@ -1021,16 +1017,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // WARN / BLOCK
+  // WARN / BLOCK ACTIONS
   // ---------------------------------------------------------------------------
 
   Future<void> _warnStudent(
     String studentId,
-    String name,
-  ) async {
+    String name, {
+    String? rollNumber,
+  }) async {
     try {
       await _reportService.issueWarning(
         studentId,
+        rollNumber: rollNumber,
       );
 
       await _loadStudents();
@@ -1043,6 +1041,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         SnackBar(
           content:
               Text('Warning issued to $name'),
+          backgroundColor:
+              AppTheme.warningColor,
         ),
       );
     } catch (e) {
@@ -1053,6 +1053,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         SnackBar(
           content:
               Text('Failed to issue warning: $e'),
+          backgroundColor:
+              AppTheme.errorColor,
         ),
       );
     }
@@ -1060,11 +1062,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
   Future<void> _blockStudent(
     String studentId,
-    String name,
-  ) async {
+    String name, {
+    String? rollNumber,
+  }) async {
     try {
       await _reportService.blockStudent(
         studentId,
+        rollNumber: rollNumber,
       );
 
       await _loadStudents();
@@ -1077,6 +1081,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         SnackBar(
           content:
               Text('$name has been blocked'),
+          backgroundColor:
+              AppTheme.errorColor,
         ),
       );
     } catch (e) {
@@ -1087,19 +1093,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         SnackBar(
           content:
               Text('Failed to block user: $e'),
+          backgroundColor:
+              AppTheme.errorColor,
         ),
       );
     }
   }
 
+
   // ---------------------------------------------------------------------------
-  // LISTINGS
+  // LISTINGS TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildListingsTab() {
     if (_isLoadingListings) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -1113,10 +1124,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
     return RefreshIndicator(
       onRefresh: _loadListings,
+      color: AppTheme.royalBlue,
       child: ListView.builder(
         physics:
             const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         itemCount: _adminListings.length,
         itemBuilder: (context, index) {
           final l = _adminListings[index];
@@ -1124,91 +1139,80 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           final title =
               l['title']?.toString() ??
                   'Untitled';
-
           final seller =
               l['sellerName']?.toString() ??
                   'Unknown seller';
-
           final status =
               l['status']?.toString() ??
                   'unknown';
-
           final price =
               (l['price'] ?? 0).toDouble();
 
-          return Card(
-            margin:
-                const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(12),
+          return Container(
+            margin: const EdgeInsets.only(
+              bottom: 10,
             ),
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .spaceBetween,
-                    children: [
-                      Text(
-                        '₹${price.toStringAsFixed(0)}',
-                        style:
-                            const TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              FontWeight.bold,
-                          color:
-                              AppTheme
-                                  .primaryColor,
-                        ),
-                      ),
-                      _statusBadge(status),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    title,
-                    style:
-                        const TextStyle(
-                      fontSize: 14,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Seller: $seller',
-                    style:
-                        const TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppTheme
-                              .textSecondary,
-                    ),
-                  ),
-
-                  Text(
-                    'Campus: '
-                    '${l['collegeId'] ?? "—"}',
-                    style:
-                        const TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppTheme
-                              .textSecondary,
-                    ),
-                  ),
-                ],
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.dividerColor,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A)
+                      .withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '₹${price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight:
+                            FontWeight.w900,
+                        color:
+                            AppTheme.primaryColor,
+                      ),
+                    ),
+                    _statusBadge(status),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Seller: $seller',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color:
+                        AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -1220,14 +1224,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     final active = status == 'active';
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 7,
         vertical: 3,
       ),
       decoration: BoxDecoration(
         color: active
-            ? const Color(0xFFDCFCE7)
+            ? const Color(0xFFECFDF5)
             : const Color(0xFFF1F5F9),
         borderRadius:
             BorderRadius.circular(5),
@@ -1236,10 +1239,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         status.toUpperCase(),
         style: TextStyle(
           fontSize: 10,
-          fontWeight:
-              FontWeight.bold,
+          fontWeight: FontWeight.w800,
           color: active
-              ? const Color(0xFF15803D)
+              ? const Color(0xFF047857)
               : AppTheme.textSecondary,
         ),
       ),
@@ -1247,13 +1249,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // REPORTS
+  // REPORTS TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildReportsTab() {
     if (_isLoadingReports) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -1261,99 +1265,125 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
       return _emptyState(
         Icons.check_circle_outline,
         'Moderation Queue Clean',
-        'No reports currently exist for this campus.',
+        'No incident reports currently pending review for this campus.',
       );
     }
 
     return RefreshIndicator(
       onRefresh: _loadReports,
+      color: AppTheme.royalBlue,
       child: ListView.builder(
         physics:
             const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         itemCount: _reports.length,
         itemBuilder: (context, index) {
           final r = _reports[index];
 
-          return Card(
-            margin:
-                const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Report: ${r.reason}',
-                          style:
-                              const TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                FontWeight.bold,
-                            color:
-                                Color(0xFFE11D48),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        r.status
-                            .toUpperCase(),
-                        style:
-                            const TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              FontWeight.bold,
-                          color:
-                              AppTheme
-                                  .textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    r.description,
-                    style:
-                        const TextStyle(
-                      fontSize: 13,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    'Listing: ${r.listingId}',
-                    style:
-                        const TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppTheme
-                              .textSecondary,
-                    ),
-                  ),
-
-                  Text(
-                    'Created: '
-                    '${DateFormat('dd MMM yyyy, HH:mm').format(r.createdAt)}',
-                    style:
-                        const TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppTheme
-                              .textSecondary,
-                    ),
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _showReportDetails(r),
+            child: Container(
+              margin: const EdgeInsets.only(
+                bottom: 10,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFFECACA),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEF4444)
+                        .withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: () => _showReportDetails(r),
+                  borderRadius: BorderRadius.circular(16),
+                  splashColor: const Color(0xFFFEF2F2),
+                  highlightColor: const Color(0xFFFFF1F2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Report: ${r.reason}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight:
+                                      FontWeight.w800,
+                                  color:
+                                      AppTheme.errorColor,
+                                ),
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  r.status.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight:
+                                        FontWeight.w800,
+                                    color:
+                                        AppTheme.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        Text(
+                          r.description,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color:
+                                AppTheme.textPrimary,
+                          ),
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        Text(
+                          'Created: ${DateFormat('dd MMM yyyy, HH:mm').format(r.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color:
+                              AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           );
@@ -1362,14 +1392,289 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     );
   }
 
+  void _showReportDetails(Report r) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (context) {
+        final isOpen = r.status.toLowerCase() == 'open';
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dividerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Incident Report Details',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isOpen ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isOpen ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0),
+                        ),
+                      ),
+                      child: Text(
+                        r.status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: isOpen ? AppTheme.errorColor : const Color(0xFF047857),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _reportDetailRow('Report ID', r.reportId),
+                _reportDetailRow('Reason', r.reason),
+                _reportDetailRow('Created', DateFormat('dd MMM yyyy, HH:mm').format(r.createdAt)),
+                _reportDetailRow('Listing ID', r.listingId),
+                _reportDetailRow('Reporter ID', r.reporterId),
+                if (r.sellerId.isNotEmpty) _reportDetailRow('Reported Seller', r.sellerId),
+                const SizedBox(height: 12),
+                const Text(
+                  'Report Description & Explanation:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.dividerColor),
+                  ),
+                  child: Text(
+                    r.description.isNotEmpty ? r.description : 'No description provided.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                if (r.reviewNotes != null && r.reviewNotes!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Review Notes:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      r.reviewNotes!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                if (isOpen) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _dismissReport(r.reportId);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 44),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Dismiss Report', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _resolveReport(r.reportId);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            minimumSize: const Size(0, 44),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Resolve Report', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _dismissReport(String reportId) async {
+    try {
+      await _reportService.reviewReport(
+        reportId: reportId,
+        status: 'dismissed',
+        reviewNotes: 'Dismissed by administrator',
+      );
+      await _loadReports();
+      await _loadAuditLogs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report dismissed'),
+          backgroundColor: AppTheme.textSecondary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to dismiss report: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _resolveReport(String reportId) async {
+    try {
+      await _reportService.reviewReport(
+        reportId: reportId,
+        status: 'resolved',
+        reviewNotes: 'Resolved by administrator',
+        actionTaken: 'listing_removed',
+      );
+      await _loadReports();
+      await _loadListings();
+      await _loadAuditLogs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report resolved & action recorded'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to resolve report: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Widget _reportDetailRow(String label, String value) {
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   // ---------------------------------------------------------------------------
-  // AUDIT LOGS
+  // AUDIT LOGS TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildAuditLogsTab() {
     if (_isLoadingAuditLogs) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -1383,10 +1688,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
     return RefreshIndicator(
       onRefresh: _loadAuditLogs,
+      color: AppTheme.royalBlue,
       child: ListView.builder(
         physics:
             const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         itemCount: _auditLogs.length,
         itemBuilder: (context, index) {
           final log = _auditLogs[index];
@@ -1403,129 +1712,98 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                     )
                   : null;
 
-          final metadata =
-              log['metadata'];
-
-          return Card(
-            margin:
-                const EdgeInsets.only(
-              bottom: 10,
+          return Container(
+            margin: const EdgeInsets.only(
+              bottom: 8,
             ),
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .spaceBetween,
-                    children: [
-                      Container(
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              const Color(
-                            0xFFDCFCE7,
-                          ),
-                          borderRadius:
-                              BorderRadius
-                                  .circular(4),
-                        ),
-                        child: Text(
-                          eventType,
-                          style:
-                              const TextStyle(
-                            fontSize: 10,
-                            fontWeight:
-                                FontWeight.bold,
-                            color:
-                                Color(
-                              0xFF166534,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (occurredAt != null)
-                        Text(
-                          DateFormat(
-                            'dd MMM yyyy, HH:mm',
-                          ).format(
-                            occurredAt,
-                          ),
-                          style:
-                              const TextStyle(
-                            fontSize: 10,
-                            color:
-                                AppTheme
-                                    .textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    _eventDescription(log),
-                    style:
-                        const TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 5),
-
-                  Text(
-                    'Student: '
-                    '${log['studentId'] ?? "—"}',
-                    style:
-                        const TextStyle(
-                      fontSize: 10,
-                      color:
-                          AppTheme
-                              .textSecondary,
-                    ),
-                  ),
-
-                  if (log['listingId'] != null)
-                    Text(
-                      'Listing: '
-                      '${log['listingId']}',
-                      style:
-                          const TextStyle(
-                        fontSize: 10,
-                        color:
-                            AppTheme
-                                .textSecondary,
-                      ),
-                    ),
-
-                  if (metadata is Map &&
-                      metadata.isNotEmpty)
-                    Text(
-                      'Details: '
-                      '${metadata.toString()}',
-                      style:
-                          const TextStyle(
-                        fontSize: 10,
-                        color:
-                            AppTheme
-                                .textSecondary,
-                      ),
-                    ),
-                ],
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(14),
+              border: Border.all(
+                color: AppTheme.dividerColor,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A)
+                      .withValues(alpha: 0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            const Color(0xFFEFF6FF),
+                        borderRadius:
+                            BorderRadius.circular(
+                          4,
+                        ),
+                      ),
+                      child: Text(
+                        eventType,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight:
+                              FontWeight.w800,
+                          color:
+                              AppTheme.royalBlue,
+                        ),
+                      ),
+                    ),
+                    if (occurredAt != null)
+                      Text(
+                        DateFormat(
+                          'dd MMM yyyy, HH:mm',
+                        ).format(occurredAt),
+                        style:
+                            const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme
+                              .textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  _eventDescription(log),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Student: ${log['studentId'] ?? "—"}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color:
+                        AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -1534,7 +1812,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // SETTINGS
+  // SETTINGS TAB
   // ---------------------------------------------------------------------------
 
   Widget _buildSettingsTab() {
@@ -1547,89 +1825,107 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           const Text(
             'System Security & Campus Policy',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
             ),
           ),
 
           const SizedBox(height: 12),
 
-          Card(
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding:
-                        EdgeInsets.zero,
-                    title: const Text(
-                      'Campus',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _college?['name'] ??
-                          'Unknown',
-                    ),
-                  ),
-
-                  const Divider(),
-
-                  ListTile(
-                    contentPadding:
-                        EdgeInsets.zero,
-                    title: const Text(
-                      'Verification Domain',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _college?[
-                              'verificationDomain'] ??
-                          'Not configured',
-                    ),
-                  ),
-
-                  const Divider(),
-
-                  ListTile(
-                    contentPadding:
-                        EdgeInsets.zero,
-                    title: const Text(
-                      'Registered Students',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '$_totalStudents students',
-                    ),
-                  ),
-
-                  const Divider(),
-
-                  ListTile(
-                    contentPadding:
-                        EdgeInsets.zero,
-                    title: const Text(
-                      'Verified Students',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '$_verifiedStudents verified',
-                    ),
-                  ),
-                ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.dividerColor,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A)
+                      .withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding:
+                      EdgeInsets.zero,
+                  title: const Text(
+                    'Campus Name',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _college?['name'] ??
+                        'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+                  ),
+                ),
+
+                const Divider(),
+
+                ListTile(
+                  contentPadding:
+                      EdgeInsets.zero,
+                  title: const Text(
+                    'Verification Domain',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _college?[
+                            'verificationDomain'] ??
+                        'avih.edu.in',
+                  ),
+                ),
+
+                const Divider(),
+
+                ListTile(
+                  contentPadding:
+                      EdgeInsets.zero,
+                  title: const Text(
+                    'Enrolled Students',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '$_totalStudents students registered',
+                  ),
+                ),
+
+                const Divider(),
+
+                ListTile(
+                  contentPadding:
+                      EdgeInsets.zero,
+                  title: const Text(
+                    'Verified Students',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '$_verifiedStudents verified',
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1649,45 +1945,45 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     required Color color,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.all(12),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
-            BorderRadius.circular(12),
+            BorderRadius.circular(16),
         border: Border.all(
-          color:
-              const Color(0xFFE2E8F0),
+          color: AppTheme.dividerColor,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A)
+                .withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
         mainAxisAlignment:
-            MainAxisAlignment
-                .spaceBetween,
+            MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment:
-                MainAxisAlignment
-                    .spaceBetween,
+                MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
                 child: Text(
                   title,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color:
-                        AppTheme
-                            .textSecondary,
+                        AppTheme.textSecondary,
                     fontWeight:
-                        FontWeight.w600,
+                        FontWeight.w700,
                   ),
                   overflow:
-                      TextOverflow
-                          .ellipsis,
+                      TextOverflow.ellipsis,
                 ),
               ),
               Icon(
@@ -1697,33 +1993,31 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               ),
             ],
           ),
+
           Column(
             crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+                CrossAxisAlignment.start,
             children: [
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight:
-                      FontWeight.bold,
+                      FontWeight.w900,
                   color: color,
+                  letterSpacing: -0.5,
                 ),
               ),
               Text(
                 subtitle,
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 10,
                   color:
-                      AppTheme
-                          .textSecondary,
+                      AppTheme.textSecondary,
                 ),
                 maxLines: 1,
                 overflow:
-                    TextOverflow
-                        .ellipsis,
+                    TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1743,26 +2037,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
       ),
       child: Row(
         mainAxisAlignment:
-            MainAxisAlignment
-                .spaceBetween,
+            MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               color:
-                  AppTheme
-                      .textSecondary,
+                  AppTheme.textSecondary,
             ),
           ),
           Text(
             value,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight:
-                  FontWeight.bold,
+                  FontWeight.w800,
+              color:
+                  AppTheme.textPrimary,
             ),
           ),
         ],
@@ -1774,25 +2066,22 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     return Container(
       width: double.infinity,
       margin:
-          const EdgeInsets.only(
-        bottom: 16,
-      ),
-      padding:
-          const EdgeInsets.all(12),
+          const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFFEE2E2),
+        color: const Color(0xFFFEF2F2),
         borderRadius:
-            BorderRadius.circular(10),
+            BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFECACA),
+        ),
       ),
-      child: Text(
-        'Unable to load some admin data. '
-        'Please check the server connection.',
-        style:
-            const TextStyle(
+      child: const Text(
+        'Unable to load some admin data. Please check the server connection.',
+        style: TextStyle(
           fontSize: 12,
-          color:
-              Color(0xFF991B1B),
+          color: AppTheme.errorColor,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1805,8 +2094,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   ) {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize:
               MainAxisSize.min,
@@ -1814,30 +2102,28 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             Icon(
               icon,
               size: 48,
-              color:
-                  AppTheme.tealAccent,
+              color: AppTheme.textMuted,
             ),
             const SizedBox(height: 12),
             Text(
               title,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight:
-                    FontWeight.bold,
+                    FontWeight.w800,
+                color:
+                    AppTheme.textPrimary,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Text(
               message,
               textAlign:
                   TextAlign.center,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 color:
-                    AppTheme
-                        .textSecondary,
+                    AppTheme.textSecondary,
               ),
             ),
           ],

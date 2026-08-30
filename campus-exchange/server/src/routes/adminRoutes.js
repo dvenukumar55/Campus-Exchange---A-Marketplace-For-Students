@@ -104,6 +104,7 @@ router.get('/dashboard', async (req, res, next) => {
         {
           $match: {
             collegeId,
+            status: LISTING_STATUS.ACTIVE,
           },
         },
         {
@@ -113,6 +114,7 @@ router.get('/dashboard', async (req, res, next) => {
           },
         },
       ]),
+
 
       Listing.aggregate([
         {
@@ -210,7 +212,7 @@ router.get('/students', async (req, res, next) => {
       collegeId: req.student.collegeId,
     })
       .select(
-        'studentId officialEmail fullName department role accountStatus verificationStatus warningCount verifiedAt createdAt'
+        'studentId officialEmail rollNumber fullName department role accountStatus verificationStatus warningCount verifiedAt createdAt'
       )
       .sort({ createdAt: -1 })
       .lean();
@@ -219,6 +221,7 @@ router.get('/students', async (req, res, next) => {
       success: true,
       data: students,
     });
+
   } catch (error) {
     next(error);
   }
@@ -312,6 +315,7 @@ router.post('/students/:studentId/warn', async (req, res, next) => {
     const result = await moderationService.warnStudent({
       studentId: req.params.studentId,
       reviewer: req.student,
+      rollNumber: req.body?.rollNumber,
     });
 
     res.json({
@@ -331,6 +335,7 @@ router.post('/students/:studentId/block', async (req, res, next) => {
     const result = await moderationService.blockStudent({
       studentId: req.params.studentId,
       reviewer: req.student,
+      rollNumber: req.body?.rollNumber,
     });
 
     res.json({
@@ -341,5 +346,6 @@ router.post('/students/:studentId/block', async (req, res, next) => {
     next(error);
   }
 });
+
 
 module.exports = router;

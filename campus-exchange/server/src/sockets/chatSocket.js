@@ -1,9 +1,13 @@
 const socketAuth = require('./socketAuth');
 const chatService = require('../services/chatService');
+const notificationService = require('../services/notificationService');
 const Listing = require('../models/Listing');
 const logger = require('../utils/logger');
 
 const initializeChatSocket = (io) => {
+  // Inject io into notificationService
+  notificationService.setIo(io);
+
   // Apply JWT authentication
   io.use(socketAuth);
 
@@ -14,6 +18,11 @@ const initializeChatSocket = (io) => {
       studentId: student.studentId,
       collegeId: student.collegeId,
     });
+
+    // Auto-join personal student room and college notification room
+    socket.join(`student_${student.studentId}`);
+    socket.join(`college_${student.collegeId}`);
+
 
     /**
      * Join a listing-specific conversation room with server-side authorization

@@ -10,6 +10,7 @@ const {
 } = require('../utils/errors');
 const storageService = require('./storageService');
 const eventService = require('./eventService');
+const notificationService = require('./notificationService');
 
 class ListingService {
   /**
@@ -40,6 +41,9 @@ class ListingService {
 
     await listing.save();
 
+    // Trigger same-college new listing notifications asynchronously (never fails listing creation)
+    notificationService.notifyNewListing({ listing, sellerStudent: student }).catch(() => {});
+
     // Record pilot event
     await eventService.recordEvent({
       eventType: PILOT_EVENT_TYPES.LISTING_CREATED,
@@ -55,6 +59,7 @@ class ListingService {
 
     return listing;
   }
+
 
   /**
    * Browses active listings strictly filtered by authenticated student's college

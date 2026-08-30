@@ -24,6 +24,19 @@ const env = {
   TARGET_RESPONSE_TIME_MS: parseInt(process.env.TARGET_RESPONSE_TIME_MS || '3000', 10),
   TARGET_AVAILABILITY_PERCENT: parseFloat(process.env.TARGET_AVAILABILITY_PERCENT || '99.0'),
   
+  // Session & Security Settings
+  SESSION_TTL_HOURS: parseInt(process.env.SESSION_TTL_HOURS || '24', 10),
+  OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10),
+  OTP_MAX_ATTEMPTS: parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10),
+
+  // Gmail SMTP Settings
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '465', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465' || !process.env.SMTP_PORT,
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '',
+  SMTP_FROM: process.env.SMTP_FROM || (process.env.SMTP_USER ? `Campus Exchange <${process.env.SMTP_USER}>` : ''),
+
   // Default pilot college
   DEFAULT_COLLEGE_ID: process.env.DEFAULT_COLLEGE_ID || 'avih-gunthapalli',
   DEFAULT_COLLEGE_NAME: process.env.DEFAULT_COLLEGE_NAME || 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',

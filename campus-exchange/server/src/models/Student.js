@@ -74,7 +74,9 @@ const StudentSchema = new mongoose.Schema(
   }
 );
 
-// Compound index: rollNumber must be unique per college
+// Compound indexes: rollNumber and officialEmail must be unique per college
 StudentSchema.index({ collegeId: 1, rollNumber: 1 }, { unique: true });
+StudentSchema.index({ collegeId: 1, officialEmail: 1 }, { unique: true });
 
 module.exports = mongoose.model('Student', StudentSchema);
+

@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'Campus Exchange';
-  static const String pilotCollegeName = 'Avanthi Institute of Engineering and Technology (AVIH)';
+  static const String pilotCollegeName = 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli';
   static const String pilotCollegeId = 'avih-gunthapalli';
 
   static const List<String> categories = [

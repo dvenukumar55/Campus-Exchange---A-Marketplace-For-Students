@@ -4,27 +4,21 @@ const { v4: uuidv4 } = require('uuid');
 const env = require('../config/env');
 const Student = require('../models/Student');
 const College = require('../models/College');
+const Session = require('../models/Session');
+const otpService = require('./otpService');
 const {
   VERIFICATION_STATUS,
   ACCOUNT_STATUS,
   PILOT_EVENT_TYPES,
 } = require('../config/constants');
-const { UnauthorizedError } = require('../utils/errors');
+const { UnauthorizedError, BadRequestError, ConflictError, ForbiddenError } = require('../utils/errors');
 const eventService = require('./eventService');
 
-/**
- * Service to handle Email + Roll Number authentication
- * and JWT token issuance.
- *
- * The client does NOT provide collegeId.
- * Existing students get their college from their Student record.
- * New students use the configured default college.
- */
 class AuthService {
   /**
-   * Generates a signed JWT session token.
+   * Generates a signed JWT session token with embedded sessionId.
    */
-  generateToken(student) {
+  generateToken(student, sessionId) {
     const payload = {
       studentId: student.studentId,
       collegeId: student.collegeId,
@@ -32,6 +26,7 @@ class AuthService {
       rollNumber: student.rollNumber,
       verificationStatus: student.verificationStatus,
       role: student.role,
+      sessionId: sessionId || `sess_${uuidv4().replace(/-/g, '')}`,
     };
 
     return jwt.sign(payload, env.JWT_SECRET, {
@@ -40,93 +35,65 @@ class AuthService {
   }
 
   /**
-   * Authenticates using Email + Roll Number.
+   * Validates OTP verification token, checks Email + Roll Number consistency,
+   * enforces single active session per account, and issues authentication JWT.
    */
-  async verifyAndAuthenticate({ officialEmail, rollNumber }) {
-    /*
-     * First search globally by roll number.
-     *
-     * This is important because the client no longer sends collegeId.
-     */
-    let student = await Student.findOne({
-      rollNumber,
-    });
+  async completeAuthentication({ officialEmail, rollNumber, verificationToken, deviceId }) {
+    const cleanEmail = officialEmail.trim().toLowerCase();
+    const cleanRollNumber = rollNumber.trim().toUpperCase();
+    const cleanDeviceId = (deviceId && typeof deviceId === 'string' && deviceId.trim().length > 0)
+      ? deviceId.trim()
+      : 'device_unknown';
 
-    const isNewStudent = !student;
+    // 1. Enforce OTP verification state (roll number cannot be used directly without prior OTP verification)
+    otpService.validateVerificationToken(verificationToken, cleanEmail);
 
-    if (!isNewStudent) {
-      /*
-       * Existing roll number:
-       *
-       * The collegeId comes from the existing Student document.
-       * We never allow another email to take over this roll number.
-       */
-      if (student.officialEmail !== officialEmail) {
-        throw new UnauthorizedError(
-          'This roll number is already registered with another email. Please use the registered email or contact campus support.'
-        );
+    // 2. Query existing student records by email and roll number
+    const [studentWithEmail, studentWithRoll] = await Promise.all([
+      Student.findOne({ officialEmail: cleanEmail }),
+      Student.findOne({ rollNumber: cleanRollNumber }),
+    ]);
+
+    let student = null;
+    let isNewStudent = false;
+
+    if (studentWithEmail && studentWithRoll) {
+      // Both exist: verify they refer to the exact same student document
+      if (studentWithEmail._id.toString() !== studentWithRoll._id.toString()) {
+        throw new BadRequestError('The email and roll number do not match.');
       }
-
-      /*
-       * Validate account status.
-       */
-      if (student.accountStatus !== ACCOUNT_STATUS.ACTIVE) {
-        throw new UnauthorizedError(
-          'This student account is not active. Please contact campus support.'
-        );
-      }
-
-      /*
-       * Existing account is authenticated directly.
-       * No OTP or email verification is required.
-       */
-      if (student.verificationStatus !== VERIFICATION_STATUS.VERIFIED) {
-        student.verificationStatus = VERIFICATION_STATUS.VERIFIED;
-        student.verifiedAt = new Date();
-        await student.save();
-      }
-
-      await eventService.recordEvent({
-        eventType: PILOT_EVENT_TYPES.STUDENT_LOGIN,
-        collegeId: student.collegeId,
-        studentId: student.studentId,
-      });
+      student = studentWithEmail;
+    } else if (studentWithEmail && !studentWithRoll) {
+      // Email exists under a different roll number -> Reject
+      throw new BadRequestError('The email and roll number do not match.');
+    } else if (!studentWithEmail && studentWithRoll) {
+      // Roll number belongs to another account -> Reject
+      throw new BadRequestError('This roll number is already associated with another account.');
     } else {
-      /*
-       * New student.
-       *
-       * Since the client provides only email + roll number,
-       * there is no college information in the request.
-       *
-       * Therefore use the configured default college for new
-       * accounts until a college/roll-number onboarding system
-       * is introduced.
-       */
+      // Neither exists: create new student account
+      isNewStudent = true;
+
       const college = await College.findOne({
         collegeId: env.DEFAULT_COLLEGE_ID,
         status: 'active',
       });
 
       if (!college) {
-        throw new UnauthorizedError(
-          'The default college configuration is unavailable.'
-        );
+        throw new UnauthorizedError('The default college configuration is unavailable.');
       }
 
-      const localPart = officialEmail.split('@')[0];
-
+      const localPart = cleanEmail.split('@')[0];
       const studentName =
         localPart
           .replace(/[0-9._-]+/g, ' ')
           .trim()
-          .replace(/\b\w/g, (c) => c.toUpperCase()) ||
-        'Student User';
+          .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Student User';
 
       student = new Student({
         studentId: `std_${uuidv4().substring(0, 10)}`,
         collegeId: college.collegeId,
-        officialEmail,
-        rollNumber,
+        officialEmail: cleanEmail,
+        rollNumber: cleanRollNumber,
         fullName: studentName,
         role: 'student',
         verificationStatus: VERIFICATION_STATUS.VERIFIED,
@@ -136,8 +103,7 @@ class AuthService {
 
       await student.save();
 
-      const emailDomain = officialEmail.split('@')[1];
-
+      const emailDomain = cleanEmail.split('@')[1];
       await eventService.recordEvent({
         eventType: PILOT_EVENT_TYPES.STUDENT_SIGNUP_VERIFIED,
         collegeId: college.collegeId,
@@ -149,24 +115,68 @@ class AuthService {
       });
     }
 
-    /*
-     * Retrieve the student's college for the response.
-     */
-    const college = await College.findOne({
-      collegeId: student.collegeId,
+    // Validate account status
+    if (student.accountStatus === ACCOUNT_STATUS.SUSPENDED) {
+      throw new ForbiddenError('This student account has been suspended by campus moderation.');
+    }
+
+    // Ensure student is verified
+    if (student.verificationStatus !== VERIFICATION_STATUS.VERIFIED) {
+      student.verificationStatus = VERIFICATION_STATUS.VERIFIED;
+      student.verifiedAt = new Date();
+      await student.save();
+    }
+
+    // 3. ONE ACCOUNT = ONE ACTIVE DEVICE/SESSION CHECK
+    const activeSession = await Session.findOne({
+      studentId: student.studentId,
+      active: true,
+      expiresAt: { $gt: new Date() },
     });
 
-    const token = this.generateToken(student);
+    if (activeSession) {
+      throw new ConflictError(
+        'This account is already signed in on another device. Please sign out from that device before signing in here.'
+      );
+    }
+
+    // 4. Create new single active session
+    const sessionId = `sess_${uuidv4().replace(/-/g, '')}`;
+    const ttlHours = env.SESSION_TTL_HOURS || 24;
+    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
+    await Session.create({
+      sessionId,
+      studentId: student.studentId,
+      collegeId: student.collegeId,
+      deviceId: cleanDeviceId,
+      active: true,
+      expiresAt,
+      lastSeenAt: new Date(),
+    });
+
+    if (!isNewStudent) {
+      await eventService.recordEvent({
+        eventType: PILOT_EVENT_TYPES.STUDENT_LOGIN,
+        collegeId: student.collegeId,
+        studentId: student.studentId,
+      });
+    }
+
+    // 5. Generate signed JWT containing sessionId
+    const token = this.generateToken(student, sessionId);
+
+    // Retrieve college details for response
+    const college = await College.findOne({ collegeId: student.collegeId });
 
     return {
       token,
+      sessionId,
       isNewStudent,
       student: {
         studentId: student.studentId,
         collegeId: student.collegeId,
-        collegeName: college
-          ? college.name
-          : student.collegeId,
+        collegeName: college ? college.name : student.collegeId,
         officialEmail: student.officialEmail,
         rollNumber: student.rollNumber,
         fullName: student.fullName,
@@ -177,6 +187,27 @@ class AuthService {
         verifiedAt: student.verifiedAt,
       },
     };
+  }
+
+  /**
+   * Session logout: revokes the active session in MongoDB.
+   */
+  async logout(sessionId, studentId) {
+    if (sessionId) {
+      await Session.updateMany(
+        {
+          sessionId,
+          ...(studentId ? { studentId } : {}),
+        },
+        {
+          $set: {
+            active: false,
+            revokedAt: new Date(),
+          },
+        }
+      );
+    }
+    return { success: true, message: 'Logged out successfully' };
   }
 
   /**
@@ -239,9 +270,6 @@ class AuthService {
 
   /**
    * Returns list of available colleges.
-   *
-   * Kept for compatibility with existing APIs.
-   * The login UI no longer uses this.
    */
   async getColleges() {
     if (mongoose.connection.readyState === 1) {

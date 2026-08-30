@@ -10,40 +10,60 @@ class ModerationService {
   /**
    * Submits a report against a listing / seller
    */
-     async warnStudent({ studentId, reviewer }) {
-       const student = await Student.findOne({ studentId });
+  async warnStudent({ studentId, reviewer, rollNumber }) {
+    const student = await Student.findOne({ studentId });
 
-       if (!student) {
-         throw new NotFoundError('Student not found');
-       }
+    if (!student) {
+      throw new NotFoundError('Student not found');
+    }
 
-       student.warningCount += 1;
-       await student.save();
+    if (!student.rollNumber) {
+      student.rollNumber = rollNumber || 'UNKNOWN';
+    }
 
-       await eventService.recordEvent({
-         eventType: PILOT_EVENT_TYPES.USER_WARNED,
-         collegeId: student.collegeId,
-         studentId: student.studentId,
-         metadata: {
-           reviewerId: reviewer.studentId,
-           warningCount: student.warningCount,
-         },
-       });
+    student.warningCount += 1;
+    await student.save();
 
-       return student;
-     }
-       async blockStudent({ studentId, reviewer }) {
-         const student = await Student.findOne({ studentId });
+    await eventService.recordEvent({
+      eventType: PILOT_EVENT_TYPES.USER_WARNED,
+      collegeId: student.collegeId,
+      studentId: student.studentId,
+      metadata: {
+        reviewerId: reviewer.studentId,
+        warningCount: student.warningCount,
+      },
+    });
 
-         if (!student) {
-           throw new NotFoundError('Student not found');
-         }
+    return student;
+  }
 
-         student.accountStatus = ACCOUNT_STATUS.SUSPENDED;
-         await student.save();
+  async blockStudent({ studentId, reviewer, rollNumber }) {
+    const student = await Student.findOne({ studentId });
 
-         return student;
-       }
+    if (!student) {
+      throw new NotFoundError('Student not found');
+    }
+
+    if (!student.rollNumber) {
+      student.rollNumber = rollNumber || 'UNKNOWN';
+    }
+
+    student.accountStatus = ACCOUNT_STATUS.SUSPENDED;
+    await student.save();
+
+    await eventService.recordEvent({
+      eventType: PILOT_EVENT_TYPES.USER_BLOCKED,
+      collegeId: student.collegeId,
+      studentId: student.studentId,
+      metadata: {
+        reviewerId: reviewer.studentId,
+        rollNumber: student.rollNumber,
+      },
+    });
+
+    return student;
+  }
+
   async createReport({ listingId, reporter, reason, description }) {
     const listing = await Listing.findOne({ listingId });
     if (!listing) {

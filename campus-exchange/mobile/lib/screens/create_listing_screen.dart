@@ -12,7 +12,7 @@ import '../services/listing_service.dart';
 import '../widgets/custom_text_field.dart';
 
 class CreateListingScreen extends StatefulWidget {
-  const CreateListingScreen({Key? key}) : super(key: key);
+  const CreateListingScreen({super.key});
 
   @override
   State<CreateListingScreen> createState() => _CreateListingScreenState();
@@ -121,11 +121,12 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   void _loadJavaBookPreset() {
     setState(() {
-      _titleController.text = 'Java Programming Book';
+      _titleController.text = 'Scientific Calculator (FX-991EX)';
       _priceController.text = '500';
-      _selectedCategory = 'Academic / Books';
+      _selectedCategory = 'Scientific Calculators';
       _selectedCondition = 'Good';
-      _descriptionController.text = 'Java programming book in good condition. Covers core concepts, OOP, and data structures for 2nd/3rd year CSE.';
+      _descriptionController.text =
+          'Scientific calculator in excellent working condition. Essential for engineering mathematics and physics labs.';
     });
   }
 
@@ -146,6 +147,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         throw Exception('No uploaded photo references were returned.');
       }
 
+      if (!mounted) return;
       final listingProvider = Provider.of<ListingProvider>(context, listen: false);
       final Listing listing = await listingProvider.createListing(
         title: _titleController.text.trim(),
@@ -159,7 +161,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${listing.title} was published successfully!', style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: Text('${listing.title} was published successfully!',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
           backgroundColor: AppTheme.successColor,
         ),
       );
@@ -180,7 +183,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
       ),
     );
@@ -191,151 +194,267 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Sell an Item', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Sell an Item', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
-          TextButton(
+          TextButton.icon(
             onPressed: _isSubmitting ? null : _loadJavaBookPreset,
-            child: const Text('Preset', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
+            label: const Text('Sample Preset'),
           ),
+          const SizedBox(width: 8),
         ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1.0),
+          child: Divider(height: 1, color: AppTheme.dividerColor),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('Photos'),
-              const SizedBox(height: 12),
-              Container(
-                height: 120,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+              // 1. Photos Section Card
+              _buildFormSectionCard(
+                stepNumber: '1',
+                title: 'Item Photos',
+                subtitle: 'Add up to 5 photos (at least 1 required)',
+                child: Column(
                   children: [
-                    ..._selectedImages.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final image = entry.value;
-                      return Container(
-                        width: 100,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          image: DecorationImage(
-                            image: FileImage(image),
-                            fit: BoxFit.cover,
+                    SizedBox(
+                      height: 100,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          ..._selectedImages.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final image = entry.value;
+                            return Container(
+                              width: 100,
+                              margin: const EdgeInsets.only(right: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppTheme.dividerColor),
+                                image: DecorationImage(
+                                  image: FileImage(image),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removeImage(index),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black87,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          if (_selectedImages.length < 5)
+                            GestureDetector(
+                              onTap: _pickImages,
+                              child: Container(
+                                width: 100,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFBFDBFE),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_a_photo_outlined, color: AppTheme.royalBlue, size: 24),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Add Photo',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.royalBlue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 2. Basic Information Card
+              _buildFormSectionCard(
+                stepNumber: '2',
+                title: 'Basic Information',
+                subtitle: 'Specify what you are listing and the asking price',
+                child: Column(
+                  children: [
+                    CustomTextField(
+                      controller: _titleController,
+                      label: 'Listing Title',
+                      hint: 'e.g. Scientific Calculator',
+                      validator: (val) {
+                        if (val == null || val.trim().length < 3) return 'Title must be at least 3 characters';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    CustomTextField(
+                      controller: _priceController,
+                      label: 'Selling Price (₹)',
+                      hint: 'e.g. 500',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.currency_rupee_rounded,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Price is required';
+                        final price = double.tryParse(val.trim());
+                        if (price == null || price < 0) return 'Enter a valid amount';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 3. Item Details Card
+              _buildFormSectionCard(
+                stepNumber: '3',
+                title: 'Category & Condition',
+                subtitle: 'Accurate classification helps peers find your item faster',
+                child: Column(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Category',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
-                        child: Stack(
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedCategory,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          items: AppConstants.formCategories
+                              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                              .toList(),
+                          onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCategory = v!),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Condition',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedCondition,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          items: AppConstants.formConditions
+                              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                              .toList(),
+                          onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCondition = v!),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    CustomTextField(
+                      controller: _descriptionController,
+                      label: 'Description & Notes',
+                      hint: 'Describe the item condition and important details',
+                      maxLines: 4,
+                      validator: (val) {
+                        if (val == null || val.trim().length < 5) return 'Description must be at least 5 characters';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Submit Button
+              Container(
+                width: double.infinity,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: AppTheme.buttonGradient,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: AppTheme.glowButtonShadow,
+                ),
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitListing,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () => _removeImage(index),
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close, size: 16, color: Colors.white),
-                                ),
+                            Icon(Icons.check_circle_rounded, size: 18, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text(
+                              'Publish Listing to Campus',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ],
                         ),
-                      );
-                    }),
-                    if (_selectedImages.length < 5)
-                      GestureDetector(
-                        onTap: _pickImages,
-                        child: Container(
-                          width: 100,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 2),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryColor, size: 32),
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
               ),
-              const SizedBox(height: 32),
-              _buildSectionTitle('Details'),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _titleController,
-                label: 'Item Title',
-                hint: 'e.g. Java Programming Book',
-                validator: (val) {
-                  if (val == null || val.trim().length < 3) return 'Title must be at least 3 characters';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              CustomTextField(
-                controller: _priceController,
-                label: 'Selling Price (₹)',
-                hint: 'e.g. 500',
-                keyboardType: TextInputType.number,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Price is required';
-                  final price = double.tryParse(val.trim());
-                  if (price == null || price < 0) return 'Enter a valid amount';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: InputDecoration(
-                  labelText: 'Category',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                ),
-                items: AppConstants.formCategories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCategory = v!),
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: _selectedCondition,
-                decoration: InputDecoration(
-                  labelText: 'Condition',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                ),
-                items: AppConstants.formConditions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: _isSubmitting ? null : (v) => setState(() => _selectedCondition = v!),
-              ),
-              const SizedBox(height: 20),
-              CustomTextField(
-                controller: _descriptionController,
-                label: 'Description',
-                hint: 'Describe condition, etc.',
-                maxLines: 4,
-                validator: (val) {
-                  if (val == null || val.trim().length < 5) return 'Description must be at least 5 characters';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitListing,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
-                    : const Text('Post Listing'),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -343,13 +462,79 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: AppTheme.textPrimary,
+  Widget _buildFormSectionCard({
+    required String stepNumber,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: const BoxDecoration(
+                  color: AppTheme.royalBlue,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    stepNumber,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          child,
+        ],
       ),
     );
   }

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
 
@@ -12,31 +15,142 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _emailFormKey = GlobalKey<FormState>();
+  final _otpFormKey = GlobalKey<FormState>();
+  final _rollNumberFormKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
   final _rollNumberController = TextEditingController();
+
+  Timer? _resendTimer;
+  int _resendCountdown = 0;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
+    _otpController.dispose();
     _rollNumberController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _startResendCountdown([int seconds = 60]) {
+    _resendTimer?.cancel();
+    setState(() {
+      _resendCountdown = seconds;
+    });
 
-    final authProvider = Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    );
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCountdown > 1) {
+        setState(() {
+          _resendCountdown--;
+        });
+      } else {
+        setState(() {
+          _resendCountdown = 0;
+        });
+        timer.cancel();
+      }
+    });
+  }
 
+  Future<void> _handleSendOtp() async {
+    if (!_emailFormKey.currentState!.validate()) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final email = _emailController.text.trim().toLowerCase();
+
+    final success = await authProvider.requestOtp(email);
+
+    if (!mounted) return;
+
+    if (success) {
+      _startResendCountdown(60);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verification code sent to $email'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Failed to send OTP code'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleResendOtp() async {
+    if (_resendCountdown > 0) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final email = _emailController.text.trim().toLowerCase();
+
+    final success = await authProvider.requestOtp(email);
+
+    if (!mounted) return;
+
+    if (success) {
+      _otpController.clear();
+      _startResendCountdown(60);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A new 6-digit code has been sent.'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Failed to resend code'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleVerifyOtp() async {
+    if (!_otpFormKey.currentState!.validate()) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final otp = _otpController.text.trim();
+
+    final success = await authProvider.verifyOtp(otp);
+
+    if (!mounted) return;
+
+    if (success) {
+      _resendTimer?.cancel();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email verified! Please enter your roll number.'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Invalid verification code'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleCompleteLogin() async {
+    if (!_rollNumberFormKey.currentState!.validate()) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final rollNumber = _rollNumberController.text.trim().toUpperCase();
 
-    final success = await authProvider.authenticate(
-      email: email,
+    final success = await authProvider.completeAuthentication(
       rollNumber: rollNumber,
     );
 
@@ -46,7 +160,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Welcome to Campus Exchange!'),
-          backgroundColor: Color(0xFF10B981),
+          backgroundColor: AppTheme.successColor,
         ),
       );
 
@@ -55,78 +169,61 @@ class _VerificationScreenState extends State<VerificationScreen> {
         AppRoutes.marketplace,
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            authProvider.errorMessage ?? 'Authentication failed',
+      if (authProvider.conflictMessage != null) {
+        _showDeviceConflictDialog(authProvider.conflictMessage!);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authProvider.errorMessage ?? 'Authentication failed',
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
+        );
+      }
     }
   }
 
-  InputDecoration _inputDecoration({
-    required String hint,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(
-        color: Color(0xFF9CA3AF),
-        fontSize: 14,
-      ),
-      prefixIcon: Container(
-        margin: const EdgeInsets.only(
-          left: 10,
-          right: 8,
-          top: 9,
-          bottom: 9,
+  void _showDeviceConflictDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
         ),
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(10),
+        title: const Row(
+          children: [
+            Icon(Icons.devices_rounded, color: AppTheme.warningColor, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'Account Already Signed In',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ],
         ),
-        child: Icon(
-          icon,
-          color: iconColor,
-          size: 20,
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.textSecondary,
+            height: 1.4,
+          ),
         ),
-      ),
-      filled: true,
-      fillColor: const Color(0xFFF8FAFF),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 18,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFFE5E7EB),
-          width: 1,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: iconColor,
-          width: 2,
-        ),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFFEF4444),
-          width: 1.5,
-        ),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFFEF4444),
-          width: 2,
-        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.royalBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -136,439 +233,453 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3FF),
-      body: Stack(
-        children: [
-          // TOP PURPLE / BLUE GRADIENT
-          Container(
-            height: 330,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF6D28D9),
-                  Color(0xFF4F46E5),
-                  Color(0xFF2563EB),
-                  Color(0xFF0891B2),
-                ],
-                stops: [0.0, 0.35, 0.70, 1.0],
-              ),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(48),
-                bottomRight: Radius.circular(48),
-              ),
-            ),
-          ),
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Branded Icon
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0F2744), Color(0xFF1E3A8A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                ),
 
-          // Decorative circles
-          Positioned(
-            top: -70,
-            right: -50,
-            child: Container(
-              width: 190,
-              height: 190,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
+                const SizedBox(height: 18),
 
-          Positioned(
-            top: 100,
-            left: -80,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
-          ),
+                const Text(
+                  'Campus Exchange',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                  ),
+                ),
 
-          Positioned(
-            top: 220,
-            right: 25,
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFBBF24).withValues(alpha: 0.20),
-              ),
-            ),
-          ),
+                const SizedBox(height: 24),
 
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                28,
-                20,
-                30,
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
+                // Main Form Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.dividerColor, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _buildCurrentStage(authProvider),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Mini Features Row
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // BRAND ICON
-                    Container(
-                      width: 82,
-                      height: 82,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(27),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            blurRadius: 28,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.school_rounded,
-                        size: 44,
-                        color: Color(0xFF4F46E5),
-                      ),
+                    _VerificationFeatureItem(
+                      icon: Icons.menu_book_rounded,
+                      label: 'Academic Items',
                     ),
-
-                    const SizedBox(height: 18),
-
-                    const Text(
-                      'Campus Exchange',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.8,
-                      ),
+                    SizedBox(width: 24),
+                    _VerificationFeatureItem(
+                      icon: Icons.verified_user_rounded,
+                      label: 'Peer Verified',
                     ),
-
-                    const SizedBox(height: 7),
-
-                    Text(
-                      'BUY  •  SELL  •  EXCHANGE',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-
-                    const SizedBox(height: 34),
-
-                    // LOGIN CARD
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(
-                        22,
-                        25,
-                        22,
-                        22,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                const Color(0xFF312E81).withValues(alpha: 0.15),
-                            blurRadius: 35,
-                            offset: const Offset(0, 18),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Welcome row
-                          Row(
-                            children: [
-                              Container(
-                                width: 46,
-                                height: 46,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFEEF2FF),
-                                      Color(0xFFE0E7FF),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Icon(
-                                  Icons.waving_hand_rounded,
-                                  color: Color(0xFFF59E0B),
-                                  size: 25,
-                                ),
-                              ),
-                              const SizedBox(width: 13),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Welcome back!',
-                                      style: TextStyle(
-                                        fontSize: 23,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF111827),
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'Sign in to your campus marketplace',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 28),
-
-                          // EMAIL LABEL
-                          const Text(
-                            'EMAIL ADDRESS',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            decoration: _inputDecoration(
-                              hint: 'student@gmail.com',
-                              icon: Icons.email_rounded,
-                              iconColor: const Color(0xFF4F46E5),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Email address is required';
-                              }
-
-                              final email = value.trim().toLowerCase();
-
-                              if (!RegExp(
-                                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                              ).hasMatch(email)) {
-                                return 'Enter a valid email address';
-                              }
-
-                              return null;
-                            },
-                          ),
-
-                          const SizedBox(height: 21),
-
-                          // ROLL NUMBER LABEL
-                          const Text(
-                            'ROLL NUMBER',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          TextFormField(
-                            controller: _rollNumberController,
-                            textCapitalization: TextCapitalization.characters,
-                            textInputAction: TextInputAction.done,
-                            decoration: _inputDecoration(
-                              hint: '23Q61A0530',
-                              icon: Icons.badge_rounded,
-                              iconColor: const Color(0xFF0891B2),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Roll number is required';
-                              }
-
-                              return null;
-                            },
-                            onFieldSubmitted: (_) {
-                              if (!authProvider.isLoading) {
-                                _handleLogin();
-                              }
-                            },
-                          ),
-
-                          const SizedBox(height: 27),
-
-                          // GRADIENT BUTTON
-                          SizedBox(
-                            width: double.infinity,
-                            height: 58,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF7C3AED),
-                                    Color(0xFF4F46E5),
-                                    Color(0xFF2563EB),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(17),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF4F46E5)
-                                        .withValues(alpha: 0.30),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: ElevatedButton(
-                                onPressed: authProvider.isLoading
-                                    ? null
-                                    : _handleLogin,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  disabledBackgroundColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(17),
-                                  ),
-                                ),
-                                child: authProvider.isLoading
-                                    ? const SizedBox(
-                                        width: 23,
-                                        height: 23,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            'Continue',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                          SizedBox(width: 10),
-                                          Icon(
-                                            Icons.arrow_forward_rounded,
-                                            color: Colors.white,
-                                            size: 21,
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 18),
-
-                          // SECURITY MESSAGE
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFF0FDFA),
-                                  Color(0xFFECFDF5),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(
-                                color: const Color(0xFFA7F3D0),
-                              ),
-                            ),
-                            child: const Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.verified_user_rounded,
-                                  size: 20,
-                                  color: Color(0xFF059669),
-                                ),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Secure access • One roll number can have only one account.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF047857),
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // BOTTOM FEATURES
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _MiniFeature(
-                          icon: Icons.shopping_bag_rounded,
-                          color: Color(0xFF7C3AED),
-                          label: 'Buy',
-                        ),
-                        SizedBox(width: 28),
-                        _MiniFeature(
-                          icon: Icons.sell_rounded,
-                          color: Color(0xFF0891B2),
-                          label: 'Sell',
-                        ),
-                        SizedBox(width: 28),
-                        _MiniFeature(
-                          icon: Icons.swap_horiz_rounded,
-                          color: Color(0xFFF59E0B),
-                          label: 'Exchange',
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    const Text(
-                      'A safer marketplace built for students',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF9CA3AF),
-                        fontWeight: FontWeight.w500,
-                      ),
+                    SizedBox(width: 24),
+                    _VerificationFeatureItem(
+                      icon: Icons.handshake_rounded,
+                      label: 'Safe Exchange',
                     ),
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentStage(AuthProvider authProvider) {
+    switch (authProvider.currentStep) {
+      case AuthFlowStep.email:
+        return _buildEmailStage(authProvider);
+      case AuthFlowStep.otp:
+        return _buildOtpStage(authProvider);
+      case AuthFlowStep.rollNumber:
+        return _buildRollNumberStage(authProvider);
+    }
+  }
+
+  // STAGE 1: EMAIL ENTRY
+  Widget _buildEmailStage(AuthProvider authProvider) {
+    return Form(
+      key: _emailFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Official Email Address',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'e.g. student@gmail.com',
+              hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              prefixIcon: Container(
+                margin: const EdgeInsets.only(left: 12, right: 8),
+                child: const Icon(Icons.email_outlined, size: 18, color: AppTheme.royalBlue),
               ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Email address is required';
+              }
+              final email = value.trim().toLowerCase();
+              if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+                return 'Enter a valid email address';
+              }
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (!authProvider.isLoading) {
+                _handleSendOtp();
+              }
+            },
+          ),
+
+          const SizedBox(height: 22),
+
+          Container(
+            width: double.infinity,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: AppTheme.buttonGradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: AppTheme.glowButtonShadow,
+            ),
+            child: ElevatedButton(
+              onPressed: authProvider.isLoading ? null : _handleSendOtp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: authProvider.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Send Verification OTP',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // STAGE 2: OTP VERIFICATION
+  Widget _buildOtpStage(AuthProvider authProvider) {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Verification Code',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _otpController,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 8,
+              color: AppTheme.royalBlue,
+            ),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              hintText: '••••••',
+              hintStyle: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 20,
+                letterSpacing: 8,
+              ),
+              prefixIcon: Container(
+                margin: const EdgeInsets.only(left: 12, right: 8),
+                child: const Icon(Icons.security_rounded, size: 18, color: AppTheme.royalBlue),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().length != 6) {
+                return 'Enter the 6-digit OTP';
+              }
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (!authProvider.isLoading) {
+                _handleVerifyOtp();
+              }
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // Resend Code and Change Email actions
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  authProvider.resetFlow();
+                },
+                icon: const Icon(Icons.arrow_back, size: 14, color: AppTheme.textSecondary),
+                label: const Text(
+                  'Change Email',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+                ),
+              ),
+              TextButton(
+                onPressed: _resendCountdown > 0 || authProvider.isLoading
+                    ? null
+                    : _handleResendOtp,
+                child: Text(
+                  _resendCountdown > 0
+                      ? 'Resend in ${_resendCountdown}s'
+                      : 'Resend OTP',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _resendCountdown > 0 ? AppTheme.textMuted : AppTheme.royalBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          Container(
+            width: double.infinity,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: AppTheme.buttonGradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: AppTheme.glowButtonShadow,
+            ),
+            child: ElevatedButton(
+              onPressed: authProvider.isLoading ? null : _handleVerifyOtp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: authProvider.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Verify OTP',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // STAGE 3: ROLL NUMBER ENTRY
+  Widget _buildRollNumberStage(AuthProvider authProvider) {
+    return Form(
+      key: _rollNumberFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Email verified pill badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppTheme.royalBlue, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _emailController.text.trim().toLowerCase(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E3A8A),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          const Text(
+            'College Roll Number',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _rollNumberController,
+            textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Enter your roll number',
+              hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              prefixIcon: Container(
+                margin: const EdgeInsets.only(left: 12, right: 8),
+                child: const Icon(Icons.badge_outlined, size: 18, color: AppTheme.royalBlue),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Roll number is required';
+              }
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (!authProvider.isLoading) {
+                _handleCompleteLogin();
+              }
+            },
+          ),
+
+          const SizedBox(height: 22),
+
+          Container(
+            width: double.infinity,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: AppTheme.buttonGradient,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: AppTheme.glowButtonShadow,
+            ),
+            child: ElevatedButton(
+              onPressed: authProvider.isLoading ? null : _handleCompleteLogin,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: authProvider.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Continue',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -577,41 +688,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 }
 
-class _MiniFeature extends StatelessWidget {
+class _VerificationFeatureItem extends StatelessWidget {
   final IconData icon;
-  final Color color;
   final String label;
 
-  const _MiniFeature({
+  const _VerificationFeatureItem({
     required this.icon,
-    required this.color,
     required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.10),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 19,
-          ),
-        ),
-        const SizedBox(height: 5),
+        Icon(icon, size: 15, color: AppTheme.royalBlue),
+        const SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF6B7280),
+            fontSize: 11,
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

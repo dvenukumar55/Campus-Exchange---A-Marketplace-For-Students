@@ -14,7 +14,7 @@ class CustomTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   const CustomTextField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.label,
     this.hint,
@@ -25,7 +25,7 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
     this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +35,10 @@ class CustomTextField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
             color: AppTheme.textPrimary,
+            letterSpacing: 0.1,
           ),
         ),
         const SizedBox(height: 6),
@@ -48,11 +49,20 @@ class CustomTextField extends StatelessWidget {
           maxLines: maxLines,
           validator: validator,
           onChanged: onChanged,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: AppTheme.primaryColor, size: 20)
+                ? Container(
+                    margin: const EdgeInsets.only(left: 12, right: 8),
+                    child: Icon(prefixIcon, color: AppTheme.royalBlue, size: 20),
+                  )
                 : null,
+            prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             suffixIcon: suffixIcon,
           ),
         ),

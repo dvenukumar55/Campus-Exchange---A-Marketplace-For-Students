@@ -1,5 +1,4 @@
 const rateLimit = require('express-rate-limit');
-const env = require('../config/env');
 const { sendError } = require('../utils/response');
 
 const generalLimiter = rateLimit({
@@ -22,6 +21,26 @@ const authLimiter = rateLimit({
   },
 });
 
+const otpRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 OTP requests per 15 min window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    sendError(res, 429, 'RATE_LIMIT_EXCEEDED', 'Too many OTP requests. Please wait before requesting another code.');
+  },
+});
+
+const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // Max 20 OTP verification attempts per 15 min window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    sendError(res, 429, 'RATE_LIMIT_EXCEEDED', 'Too many verification attempts. Please wait before retrying.');
+  },
+});
+
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -33,5 +52,7 @@ const uploadLimiter = rateLimit({
 module.exports = {
   generalLimiter,
   authLimiter,
+  otpRequestLimiter,
+  otpVerifyLimiter,
   uploadLimiter,
 };

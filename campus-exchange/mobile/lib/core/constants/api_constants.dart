@@ -6,6 +6,9 @@ class ApiConstants {
   static String get socketUrl => kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000';
 
   // Auth endpoints
+  static const String requestOtp = '/auth/request-otp';
+  static const String verifyOtp = '/auth/verify-otp';
+  static const String completeRegistration = '/auth/complete-registration';
   static const String verifyAuth = '/auth/verify';
   static const String getProfile = '/auth/me';
   static const String logout = '/auth/logout';
@@ -15,12 +18,15 @@ class ApiConstants {
   static const String myListings = '/listings/my';
   static const String uploadImage = '/listings/upload-image';
 
-// Admin
-static const String admin = '/admin';
+  // Admin
+  static const String admin = '/admin';
 
-  // Chat & Reports
+  // Chat & Reports & Notifications
   static const String userChats = '/chats';
   static const String reports = '/reports';
+  static const String notifications = '/notifications';
+  static const String unreadNotificationsCount = '/notifications/unread-count';
+
 
   // Telemetry & Metrics
   static const String events = '/events';

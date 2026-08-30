@@ -2,8 +2,10 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/constants/api_constants.dart';
 import '../core/storage/secure_storage.dart';
 import '../models/message.dart';
+import '../models/notification_model.dart';
 
 typedef OnMessageReceived = void Function(Message message);
+typedef OnNotificationReceived = void Function(NotificationModel notification);
 
 class SocketService {
   io.Socket? _socket;
@@ -43,6 +45,14 @@ class SocketService {
     _socket?.on('new_message', (data) {
       if (data is Map<String, dynamic>) {
         onMessage(Message.fromJson(data));
+      }
+    });
+  }
+
+  void listenForNotifications(OnNotificationReceived onNotification) {
+    _socket?.on('new_notification', (data) {
+      if (data is Map<String, dynamic>) {
+        onNotification(NotificationModel.fromJson(data));
       }
     });
   }

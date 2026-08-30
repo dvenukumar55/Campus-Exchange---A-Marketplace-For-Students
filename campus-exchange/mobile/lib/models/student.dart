@@ -8,6 +8,7 @@ class Student {
   final String verificationStatus;
   final String accountStatus;
   final String role;
+  final String? rollNumber;
   final DateTime? verifiedAt;
 
   Student({
@@ -20,6 +21,7 @@ class Student {
     required this.verificationStatus,
     required this.accountStatus,
     required this.role,
+    this.rollNumber,
     this.verifiedAt,
   });
 
@@ -35,6 +37,7 @@ class Student {
       verificationStatus: json['verificationStatus'] ?? 'pending',
       accountStatus: json['accountStatus'] ?? 'active',
       role: json['role'] ?? 'student',
+      rollNumber: json['rollNumber'],
       verifiedAt: json['verifiedAt'] != null
           ? DateTime.tryParse(json['verifiedAt'])
           : null,
@@ -52,6 +55,7 @@ class Student {
       'verificationStatus': verificationStatus,
       'accountStatus': accountStatus,
       'role': role,
+      'rollNumber': rollNumber,
       'verifiedAt': verifiedAt?.toIso8601String(),
     };
   }

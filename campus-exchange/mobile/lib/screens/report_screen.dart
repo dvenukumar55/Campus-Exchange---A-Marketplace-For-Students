@@ -8,7 +8,7 @@ import '../widgets/custom_text_field.dart';
 class ReportScreen extends StatefulWidget {
   final Listing listing;
 
-  const ReportScreen({Key? key, required this.listing}) : super(key: key);
+  const ReportScreen({super.key, required this.listing});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -44,7 +44,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Report submitted. Campus moderation will review this listing.', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Text('Report submitted. Campus moderation will review this listing.',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           backgroundColor: AppTheme.successColor,
         ),
       );
@@ -53,7 +54,11 @@ class _ReportScreenState extends State<ReportScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit report: ${e.toString()}', style: const TextStyle(fontWeight: FontWeight.bold)), backgroundColor: AppTheme.errorColor),
+        SnackBar(
+          content: Text('Failed to submit report: ${e.toString()}',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          backgroundColor: AppTheme.errorColor,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -65,38 +70,58 @@ class _ReportScreenState extends State<ReportScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Report Listing', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Report Listing', style: TextStyle(fontWeight: FontWeight.w800)),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1.0),
+          child: Divider(height: 1, color: AppTheme.dividerColor),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Reported item summary card
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.warningColor.withOpacity(0.1),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.warningColor.withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.warning_rounded, color: AppTheme.warningColor, size: 28),
-                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.flag_rounded, color: AppTheme.errorColor, size: 22),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Reporting: ${widget.listing.title}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Help keep Campus Exchange safe and transparent by reporting misleading items or inappropriate conduct.',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                            'Reports are confidential and reviewed directly by campus moderators to maintain student community safety.',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35),
                           ),
                         ],
                       ),
@@ -104,67 +129,77 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
 
-              const Text(
-                'Reason for Report',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _selectedReason,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              const SizedBox(height: 20),
+
+              // Form fields container
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.dividerColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                items: AppConstants.reportReasons.map((r) {
-                  return DropdownMenuItem(
-                    value: r,
-                    child: Text(r, style: const TextStyle(fontSize: 14)),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedReason = val);
-                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Reason for Report',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedReason,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: AppConstants.reportReasons.map((r) {
+                        return DropdownMenuItem(
+                          value: r,
+                          child: Text(r, style: const TextStyle(fontSize: 13)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedReason = val);
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    CustomTextField(
+                      controller: _descController,
+                      label: 'Details & Explanation',
+                      hint: 'Describe why this listing violates campus guidelines or pricing norms...',
+                      maxLines: 4,
+                      validator: (val) {
+                        if (val == null || val.trim().length < 5) {
+                          return 'Please provide at least 5 characters of explanation';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
+
               const SizedBox(height: 24),
 
-              CustomTextField(
-                controller: _descController,
-                label: 'Details & Evidence',
-                hint: 'Describe why this listing violates campus guidelines...',
-                maxLines: 4,
-                validator: (val) {
-                  if (val == null || val.trim().length < 5) {
-                    return 'Please provide at least 5 characters of explanation';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 40),
-
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: _isSubmitting ? null : _submitReport,
+                icon: const Icon(Icons.send_rounded, size: 16),
+                label: const Text('Submit Report to Moderation'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.errorColor,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shadowColor: AppTheme.errorColor.withValues(alpha: 0.35),
                 ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.flag_rounded, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text('Submit Report to Moderation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ],
-                      ),
               ),
             ],
           ),

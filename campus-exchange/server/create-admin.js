@@ -10,10 +10,11 @@ async function createOrUpdateAdmin() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB.');
 
-    const adminStudentId = 'admin_avih_001';
-    const adminEmail = 'kittud0005@gmail.com';
-    const adminRollNumber = 'ADMIN001';
-    const collegeId = 'avih-gunthapalli';
+    const adminStudentId = process.env.ADMIN_STUDENT_ID || 'admin_avih_001';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@avih.edu.in';
+    const adminRollNumber = process.env.ADMIN_ROLL_NUMBER || 'ADMIN001';
+    const collegeId = process.env.DEFAULT_COLLEGE_ID || 'avih-gunthapalli';
+
 
     // Find the existing admin by student ID
     let admin = await Student.findOne({

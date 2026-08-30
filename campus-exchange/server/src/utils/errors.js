@@ -52,6 +52,12 @@ class ServiceUnavailableError extends AppError {
   }
 }
 
+class EmailDeliveryError extends AppError {
+  constructor(message = 'Failed to deliver verification email. Please check server email/SMTP configuration.') {
+    super(502, 'EMAIL_DELIVERY_FAILED', message);
+  }
+}
+
 module.exports = {
   AppError,
   BadRequestError,
@@ -61,4 +67,6 @@ module.exports = {
   NotFoundError,
   ConflictError,
   ServiceUnavailableError,
+  EmailDeliveryError,
 };
+

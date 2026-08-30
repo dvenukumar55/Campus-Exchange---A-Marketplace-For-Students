@@ -1,111 +1,130 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
 import '../models/listing.dart';
 import 'condition_badge.dart';
 import 'status_badge.dart';
-import '../core/theme/app_theme.dart';
 
 class ListingCard extends StatelessWidget {
   final Listing listing;
   final VoidCallback onTap;
 
   const ListingCard({
-    Key? key,
+    super.key,
     required this.listing,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor = _getCategoryColor(listing.category);
+    final categoryIcon = _getCategoryIcon(listing.category);
+    final categoryColor = _getCategoryAccentColor(listing.category);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.dividerColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hero Image Area
+              // Hero Image / Media Area with Branded Visual Layering
               Container(
-                height: 180,
+                height: 140,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28),
-                  ),
                   gradient: LinearGradient(
+                    colors: [
+                      categoryColor.withValues(alpha: 0.12),
+                      const Color(0xFFF1F5F9),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      categoryColor.withOpacity(0.15),
-                      categoryColor.withOpacity(0.05),
-                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
                   ),
                 ),
                 child: Stack(
                   children: [
+                    // Center Icon / Illustration Anchor
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: categoryColor.withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: categoryColor.withOpacity(0.2),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                              color: categoryColor.withValues(alpha: 0.15),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: Icon(
-                          _getCategoryIcon(listing.category),
-                          size: 48,
+                          categoryIcon,
+                          size: 34,
                           color: categoryColor,
                         ),
                       ),
                     ),
+
+                    // Top Left: Condition Badge
                     Positioned(
-                      top: 16,
-                      right: 16,
-                      child: StatusBadge(status: listing.status),
-                    ),
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
+                      top: 10,
+                      left: 10,
                       child: ConditionBadge(condition: listing.condition),
                     ),
+
+                    // Top Right: Status Badge
                     Positioned(
-                      bottom: 16,
-                      right: 16,
+                      top: 10,
+                      right: 10,
+                      child: StatusBadge(status: listing.status),
+                    ),
+
+                    // Bottom Left: Category Indicator Tag
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.dividerColor),
                         ),
                         child: Text(
                           listing.category.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
                             color: categoryColor,
-                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
@@ -114,12 +133,13 @@ class ListingCard extends StatelessWidget {
                 ),
               ),
 
-              // Info Area
+              // Content Area
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Price & Title Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -130,76 +150,105 @@ class ListingCard extends StatelessWidget {
                               Text(
                                 '₹${listing.price.toStringAsFixed(0)}',
                                 style: const TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 21,
                                   fontWeight: FontWeight.w900,
                                   color: AppTheme.primaryColor,
+                                  letterSpacing: -0.6,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 3),
                               Text(
                                 listing.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
                                   color: AppTheme.textPrimary,
+                                  height: 1.25,
+                                  letterSpacing: -0.2,
                                 ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 16,
+                            color: AppTheme.royalBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // Seller Information Footer
+                    Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEFF6FF),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person_rounded,
+                            size: 14,
+                            color: AppTheme.royalBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  listing.sellerName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.verified_rounded,
+                                color: AppTheme.successColor,
+                                size: 14,
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(14),
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: AppTheme.primaryColor,
-                            size: 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: AppTheme.violetAccent.withOpacity(0.1),
-                          child: const Icon(Icons.person_rounded, size: 18, color: AppTheme.violetAccent),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Listed by',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                listing.sellerName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ],
+                          child: const Text(
+                            'Campus Peer',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                         ),
-                        const Icon(Icons.verified_rounded, color: AppTheme.successColor, size: 20),
                       ],
                     ),
                   ],
@@ -221,17 +270,18 @@ class ListingCard extends StatelessWidget {
     if (value.contains('hostel')) return Icons.bed_rounded;
     if (value.contains('electronic')) return Icons.devices_rounded;
     if (value.contains('uniform') || value.contains('apron')) return Icons.checkroom_rounded;
+    if (value.contains('sport')) return Icons.sports_basketball_rounded;
     return Icons.inventory_2_rounded;
   }
 
-  Color _getCategoryColor(String category) {
+  Color _getCategoryAccentColor(String category) {
     final value = category.toLowerCase();
-    if (value.contains('book') || value.contains('academic')) return AppTheme.violetAccent;
-    if (value.contains('drawing') || value.contains('graphics')) return AppTheme.tealAccent;
-    if (value.contains('lab')) return AppTheme.successColor;
-    if (value.contains('electronic')) return AppTheme.blueAccent;
-    if (value.contains('uniform') || value.contains('apron')) return AppTheme.warningColor;
-    if (value.contains('hostel')) return const Color(0xFFEC4899);
-    return AppTheme.primaryColor;
+    if (value.contains('book') || value.contains('academic')) return const Color(0xFF2563EB); // Royal Blue
+    if (value.contains('calculator')) return const Color(0xFF0284C7); // Cyan
+    if (value.contains('drawing') || value.contains('graphics')) return const Color(0xFF4F46E5); // Indigo
+    if (value.contains('lab')) return const Color(0xFF059669); // Emerald
+    if (value.contains('hostel')) return const Color(0xFFD97706); // Amber
+    if (value.contains('electronic')) return const Color(0xFF0EA5E9); // Sky Blue
+    return const Color(0xFF1E3A8A); // Midnight Blue
   }
 }

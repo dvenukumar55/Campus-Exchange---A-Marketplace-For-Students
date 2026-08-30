@@ -8,12 +8,9 @@ const setupTestDB = () => {
   beforeAll(async () => {
     try {
       if (!mongoServer) {
-        mongoServer = await MongoMemoryServer.create({
-          binary: {
-            version: '7.0.3',
-          },
-        });
+        mongoServer = await MongoMemoryServer.create();
       }
+
       if (mongoose.connection.readyState === 0) {
         const mongoUri = mongoServer.getUri();
         await mongoose.connect(mongoUri);
@@ -21,7 +18,7 @@ const setupTestDB = () => {
     } catch (e) {
       console.warn('Memory server initialization fallback:', e.message);
     }
-  }, 30000);
+  }, 120000);
 
   afterAll(async () => {
     if (mongoose.connection.readyState !== 0) {

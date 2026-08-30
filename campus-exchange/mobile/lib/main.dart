@@ -5,6 +5,7 @@ import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/listing_provider.dart';
 import 'providers/metrics_provider.dart';
+import 'providers/notification_provider.dart';
 import 'routes/app_routes.dart';
 
 void main() {
@@ -13,7 +14,7 @@ void main() {
 }
 
 class CampusExchangeApp extends StatelessWidget {
-  const CampusExchangeApp({Key? key}) : super(key: key);
+  const CampusExchangeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +24,9 @@ class CampusExchangeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ListingProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => MetricsProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
+
       child: MaterialApp(
         title: 'Campus Exchange',
         debugShowCheckedModeBanner: false,
