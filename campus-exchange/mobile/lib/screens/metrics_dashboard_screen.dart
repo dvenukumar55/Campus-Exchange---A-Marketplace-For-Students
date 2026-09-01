@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/pilot_metrics.dart';
 import '../providers/metrics_provider.dart';
@@ -16,69 +17,127 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MetricsProvider>(context, listen: false).fetchMetrics();
+      Provider.of<MetricsProvider>(
+        context,
+        listen: false,
+      ).fetchMetrics();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final metricsProvider = Provider.of<MetricsProvider>(context);
+    final provider = Provider.of<MetricsProvider>(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: const Color(0xFF0B1128),
       appBar: AppBar(
-        title: const Text('Pilot Acceptance Metrics', style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Metrics',
-            onPressed: () => metricsProvider.fetchMetrics(),
+        backgroundColor: const Color(0xFF0B1128),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 16,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Colors.white,
           ),
-          const SizedBox(width: 6),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Analytics',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.4,
+              ),
+            ),
+            SizedBox(height: 1),
+            Text(
+              'Pilot marketplace performance',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF17224D),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+              ),
+            ),
+            child: IconButton(
+              tooltip: 'Refresh Metrics',
+              onPressed:
+                  provider.isLoading ? null : () => provider.fetchMetrics(),
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 19,
+                color: provider.isLoading
+                    ? const Color(0xFF64748B)
+                    : const Color(0xFF60A5FA),
+              ),
+            ),
+          ),
         ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1.0),
-          child: Divider(height: 1, color: AppTheme.dividerColor),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
         ),
       ),
-      body: metricsProvider.isLoading && metricsProvider.metrics == null
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
-          : metricsProvider.errorMessage != null && metricsProvider.metrics == null
+      body: provider.isLoading && provider.metrics == null
+          ? const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Color(0xFF60A5FA),
+              ),
+            )
+          : provider.errorMessage != null && provider.metrics == null
               ? ErrorStateView(
-                  message: metricsProvider.errorMessage!,
-                  onRetry: () => metricsProvider.fetchMetrics(),
+                  message: provider.errorMessage!,
+                  onRetry: () => provider.fetchMetrics(),
                 )
               : RefreshIndicator(
-                  onRefresh: () => metricsProvider.fetchMetrics(),
-                  color: AppTheme.royalBlue,
+                  color: const Color(0xFF60A5FA),
+                  backgroundColor: const Color(0xFF111936),
+                  onRefresh: () => provider.fetchMetrics(),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Pilot Target Hero Card
-                        _buildPilotTargetSummary(metricsProvider.metrics!),
-                        const SizedBox(height: 20),
-
-                        const Text(
-                          'Marketplace Performance Indicators',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textPrimary,
-                            letterSpacing: -0.2,
-                          ),
+                        _buildOverviewHeader(provider.metrics!),
+                        const SizedBox(height: 16),
+                        _buildPilotTargetSummary(provider.metrics!),
+                        const SizedBox(height: 22),
+                        _buildSectionHeader(
+                          'Marketplace Performance',
+                          'Live marketplace indicators',
+                          Icons.bar_chart_rounded,
                         ),
                         const SizedBox(height: 12),
-
-                        // Metric Stat Cards Grid
-                        _buildStatsGrid(metricsProvider.metrics!),
-                        const SizedBox(height: 20),
-
-                        // SLA & Technical NFR Monitoring Card
+                        _buildStatsGrid(provider.metrics!),
+                        const SizedBox(height: 22),
                         _buildSlaCard(),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -86,20 +145,169 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
     );
   }
 
-  Widget _buildPilotTargetSummary(PilotMetrics m) {
+  Widget _buildOverviewHeader(PilotMetrics m) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F2744), Color(0xFF1E3A8A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF111936),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
-            blurRadius: 20,
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              gradient: AppTheme.buttonGradient,
+              borderRadius: BorderRadius.circular(13),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.insights_rounded,
+              color: Colors.white,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pilot Overview',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${m.totalListings} total listings currently tracked',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF22C55E).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: const Color(0xFF22C55E).withValues(alpha: 0.35),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 6,
+                  color: Color(0xFF22C55E),
+                ),
+                SizedBox(width: 5),
+                Text(
+                  'LIVE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF86EFAC),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(
+    String title,
+    String subtitle,
+    IconData icon,
+  ) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: const Color(0xFF17224D),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(
+            icon,
+            size: 17,
+            color: const Color(0xFF60A5FA),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPilotTargetSummary(PilotMetrics m) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111936),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 22,
             offset: const Offset(0, 8),
           ),
         ],
@@ -107,59 +315,149 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Row(
             children: [
-              Text(
-                'Pilot Acceptance Criteria',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF17224D),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  color: Color(0xFF60A5FA),
+                  size: 19,
+                ),
               ),
-              Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 22),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pilot Acceptance Criteria',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Target achievement status',
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF22C55E).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Text(
+                  'PILOT',
+                  style: TextStyle(
+                    color: Color(0xFF86EFAC),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildTargetRow('Verified Sign-ups (≥ 100)', '${m.verifiedSignups} / 100', m.verifiedSignupsMet),
-          const Divider(color: Color(0xFF334155), height: 16),
-          _buildTargetRow('Active Listings (≥ 50)', '${m.activeListings} / 50', m.activeListingsMet),
-          const Divider(color: Color(0xFF334155), height: 16),
-          _buildTargetRow('Listing-to-Chat (≥ 50%)', m.listingToChatConversionRate, m.listingToChatMet),
-          const Divider(color: Color(0xFF334155), height: 16),
-          _buildTargetRow('Listing-to-Sale (≥ 30%)', m.listingToSaleConversionRate, m.listingToSaleMet),
+          const SizedBox(height: 18),
+          _buildTargetRow(
+            'Verified Sign-ups (≥ 100)',
+            '${m.verifiedSignups} / 100',
+            m.verifiedSignupsMet,
+          ),
+          _buildDarkDivider(),
+          _buildTargetRow(
+            'Active Listings (≥ 50)',
+            '${m.activeListings} / 50',
+            m.activeListingsMet,
+          ),
+          _buildDarkDivider(),
+          _buildTargetRow(
+            'Listing-to-Chat (≥ 50%)',
+            m.listingToChatConversionRate,
+            m.listingToChatMet,
+          ),
+          _buildDarkDivider(),
+          _buildTargetRow(
+            'Listing-to-Sale (≥ 30%)',
+            m.listingToSaleConversionRate,
+            m.listingToSaleMet,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTargetRow(String label, String value, bool isMet) {
+  Widget _buildDarkDivider() {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      color: Colors.white.withValues(alpha: 0.06),
+    );
+  }
+
+  Widget _buildTargetRow(
+    String label,
+    String value,
+    bool isMet,
+  ) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              color: Color(0xFFCBD5E1),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        Row(
-          children: [
-            Text(
-              value,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: isMet ? AppTheme.successColor.withValues(alpha: 0.25) : AppTheme.warningColor.withValues(alpha: 0.25),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isMet ? Icons.check_circle_rounded : Icons.pending_rounded,
-                color: isMet ? AppTheme.successColor : AppTheme.warningColor,
-                size: 16,
-              ),
-            ),
-          ],
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: isMet
+                ? const Color(0xFF22C55E).withValues(alpha: 0.18)
+                : const Color(0xFFFBBF24).withValues(alpha: 0.18),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isMet ? Icons.check_rounded : Icons.schedule_rounded,
+            color: isMet ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+            size: 14,
+          ),
         ),
       ],
     );
@@ -170,30 +468,62 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 1.35,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.30,
       children: [
-        _buildMetricBox('Total Listings', m.totalListings.toString(), Icons.inventory_2_outlined, AppTheme.royalBlue),
-        _buildMetricBox('Active Listings', m.activeListings.toString(), Icons.storefront_outlined, AppTheme.successColor),
-        _buildMetricBox('Completed Sales', m.soldListings.toString(), Icons.check_circle_outline_rounded, AppTheme.cyanAccent),
-        _buildMetricBox('Listings with Chat', m.listingsWithChat.toString(), Icons.forum_outlined, AppTheme.warningColor),
+        _buildMetricBox(
+          'Total Listings',
+          m.totalListings.toString(),
+          Icons.inventory_2_rounded,
+          const Color(0xFF818CF8),
+          const Color(0xFF17224D),
+        ),
+        _buildMetricBox(
+          'Active Listings',
+          m.activeListings.toString(),
+          Icons.storefront_rounded,
+          const Color(0xFF2DD4BF),
+          const Color(0xFF0F3830),
+        ),
+        _buildMetricBox(
+          'Completed Sales',
+          m.soldListings.toString(),
+          Icons.check_circle_rounded,
+          const Color(0xFF38BDF8),
+          const Color(0xFF0C3854),
+        ),
+        _buildMetricBox(
+          'Listings with Chat',
+          m.listingsWithChat.toString(),
+          Icons.forum_rounded,
+          const Color(0xFFFB923C),
+          const Color(0xFF3E2210),
+        ),
       ],
     );
   }
 
-  Widget _buildMetricBox(String label, String value, IconData icon, Color color) {
+  Widget _buildMetricBox(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    Color bg,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: const Color(0xFF111936),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -202,22 +532,44 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
                 ),
               ),
-              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: color,
+                ),
+              ),
             ],
           ),
           Text(
             value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color, letterSpacing: -0.5),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: color,
+              letterSpacing: -0.8,
+            ),
           ),
         ],
       ),
@@ -226,35 +578,134 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
 
   Widget _buildSlaCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: const Color(0xFF111936),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Operational & NFR Benchmarks',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+          const Row(
+            children: [
+              Icon(
+                Icons.speed_rounded,
+                size: 19,
+                color: Color(0xFF2DD4BF),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Operational & NFR Benchmarks',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'System reliability targets',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.shield_outlined,
+                size: 19,
+                color: Color(0xFF2DD4BF),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text('• Action Response Time: ≤ 3.0s (via X-Request-Id audit)',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
-          SizedBox(height: 4),
-          Text('• Pilot Availability SLA: 99.0% (via /api/v1/health)',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
-          SizedBox(height: 4),
-          Text('• College Isolation Boundary: Server-Side Enforced',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
+          const SizedBox(height: 16),
+          _buildBenchmarkRow(
+            Icons.bolt_rounded,
+            'Action Response Time',
+            '≤ 3.0s',
+          ),
+          const SizedBox(height: 10),
+          _buildBenchmarkRow(
+            Icons.cloud_done_rounded,
+            'Pilot Availability SLA',
+            '99.0%',
+          ),
+          const SizedBox(height: 10),
+          _buildBenchmarkRow(
+            Icons.lock_rounded,
+            'College Isolation',
+            'Server-Side Enforced',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenchmarkRow(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1228),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: const Color(0xFF64748B),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: Color(0xFFCBD5E1),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
         ],
       ),
     );

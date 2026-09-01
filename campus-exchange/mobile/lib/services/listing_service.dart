@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/listing.dart';
@@ -36,34 +38,63 @@ class ListingService {
     );
 
     final items = response['items'] as List? ?? [];
-    return items.map((json) => Listing.fromJson(json as Map<String, dynamic>)).toList();
+    return items
+        .map((json) => Listing.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Listing>> getMyListings() async {
     final response = await _apiClient.get(ApiConstants.myListings);
     final items = response['items'] as List? ?? [];
-    return items.map((json) => Listing.fromJson(json as Map<String, dynamic>)).toList();
+    return items
+        .map((json) => Listing.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Listing> getListingById(String listingId) async {
-    final response = await _apiClient.get('${ApiConstants.listings}/$listingId');
+    final response =
+        await _apiClient.get('${ApiConstants.listings}/$listingId');
     return Listing.fromJson(response['listing'] as Map<String, dynamic>);
   }
- Future<String> uploadListingImage(File file) async {
-   final response = await _apiClient.uploadFile(
-     ApiConstants.uploadImage,
-     file,
-     fieldName: 'photo',
-   );
 
-   final photoRef = response['photoRef'];
+  /// Uploads listing image using bytes. Works on all platforms (Web, Android, iOS).
+  Future<String> uploadListingImageBytes(
+    Uint8List bytes, {
+    required String filename,
+    String? mimeType,
+  }) async {
+    final response = await _apiClient.uploadBytes(
+      ApiConstants.uploadImage,
+      bytes,
+      filename: filename,
+      mimeType: mimeType,
+      fieldName: 'photo',
+    );
 
-   if (photoRef == null || photoRef.toString().isEmpty) {
-     throw Exception('Image upload succeeded but no photo reference was returned');
-   }
+    final photoRef = response['photoRef'];
 
-   return photoRef.toString();
- }
+    if (photoRef == null || photoRef.toString().isEmpty) {
+      throw Exception(
+        'Image upload succeeded but no photo reference was returned',
+      );
+    }
+
+    return photoRef.toString();
+  }
+
+  /// Uploads listing image from an XFile by reading bytes asynchronously.
+  Future<String> uploadListingImage(XFile file) async {
+    final bytes = await file.readAsBytes();
+    final filename = file.name.isNotEmpty ? file.name : 'item_photo.jpg';
+    final mimeType = file.mimeType;
+
+    return uploadListingImageBytes(
+      bytes,
+      filename: filename,
+      mimeType: mimeType,
+    );
+  }
+
   Future<Listing> createListing({
     required String title,
     required String description,

@@ -17,10 +17,10 @@ const env = {
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',
   STORAGE_LOCAL_DIR: process.env.STORAGE_LOCAL_DIR || path.join(__dirname, '../../uploads'),
   STORAGE_MAX_FILE_SIZE_MB: parseInt(process.env.STORAGE_MAX_FILE_SIZE_MB || '5', 10),
-  STORAGE_MAX_PHOTO_COUNT: parseInt(process.env.STORAGE_MAX_PHOTO_COUNT || '5', 10),
-  STORAGE_ALLOWED_MIME_TYPES: (process.env.STORAGE_ALLOWED_MIME_TYPES || 'image/jpeg,image/png,image/webp').split(','),
-  
-  // SLA and Performance targets
+  STORAGE_ALLOWED_MIME_TYPES: (
+    process.env.STORAGE_ALLOWED_MIME_TYPES ||
+    'image/jpeg,image/jpg,image/pjpeg,image/png,image/webp,image/gif,image/bmp,image/x-ms-bmp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/tiff,image/tif,image/x-tiff,image/svg+xml'
+  ).split(','),
   TARGET_RESPONSE_TIME_MS: parseInt(process.env.TARGET_RESPONSE_TIME_MS || '3000', 10),
   TARGET_AVAILABILITY_PERCENT: parseFloat(process.env.TARGET_AVAILABILITY_PERCENT || '99.0'),
   

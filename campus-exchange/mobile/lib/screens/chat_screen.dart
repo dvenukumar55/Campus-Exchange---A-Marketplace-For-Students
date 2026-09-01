@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/listing.dart';
 import '../providers/auth_provider.dart';
@@ -9,7 +10,10 @@ import '../providers/chat_provider.dart';
 class ChatScreen extends StatefulWidget {
   final Listing listing;
 
-  const ChatScreen({super.key, required this.listing});
+  const ChatScreen({
+    super.key,
+    required this.listing,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -18,28 +22,32 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
   bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
       await chatProvider.initSocket();
       chatProvider.joinListing(widget.listing.listingId);
       await chatProvider.fetchMessages(widget.listing.listingId);
+
       _scrollToBottom();
     });
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 80,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    if (!_scrollController.hasClients) return;
+
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent + 100,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -51,30 +59,49 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _handleSend() async {
     final text = _msgController.text.trim();
-    if (text.isEmpty) return;
+
+    if (text.isEmpty || _isSending) return;
 
     _msgController.clear();
-    setState(() => _isSending = true);
+
+    setState(() {
+      _isSending = true;
+    });
 
     try {
       final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
       await chatProvider.sendMessage(
         listingId: widget.listing.listingId,
         messageText: text,
       );
+
       _scrollToBottom();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send message: ${e.toString()}',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            backgroundColor: AppTheme.errorColor,
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to send message: ${e.toString()}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        );
-      }
+          backgroundColor: const Color(0xFFE11D48),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
     }
   }
 
@@ -82,216 +109,478 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final chatProvider = Provider.of<ChatProvider>(context);
+
     final currentStudentId = authProvider.currentStudent?.studentId;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                gradient: AppTheme.heroCardGradient,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person_rounded, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.listing.title,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '₹${widget.listing.price.toStringAsFixed(0)} • ${widget.listing.sellerName}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1.0),
-          child: Divider(height: 1, color: AppTheme.dividerColor),
-        ),
-      ),
+      backgroundColor: const Color(0xFF0B1128),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Safety Advisory Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: const BoxDecoration(
-              gradient: AppTheme.trustGradient,
-              border: Border(bottom: BorderSide(color: Color(0xFFA7F3D0))),
+          _buildSafetyBanner(),
+          Expanded(
+            child: _buildMessageArea(
+              chatProvider,
+              currentStudentId,
             ),
-            child: const Row(
-              children: [
-                Icon(Icons.shield_rounded, size: 16, color: AppTheme.successColor),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Safety: Meet in public campus areas (Library/Canteen) for handover.',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF065F46), fontWeight: FontWeight.w600),
+          ),
+          _buildMessageInput(),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: const Color(0xFF0B1128),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: true,
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_rounded,
+          color: Colors.white,
+        ),
+        onPressed: () => Navigator.maybePop(context),
+      ),
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: AppTheme.buttonGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              Positioned(
+                right: 1,
+                bottom: 1,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF0B1128),
+                      width: 2,
+                    ),
                   ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.listing.sellerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.listing.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '₹${widget.listing.price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF60A5FA),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
 
-          // Message Stream
-          Expanded(
-            child: chatProvider.isLoading && chatProvider.currentMessages.isEmpty
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
-                : chatProvider.currentMessages.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.chat_bubble_outline_rounded, size: 44, color: AppTheme.textMuted),
-                              SizedBox(height: 12),
-                              Text(
-                                'No messages yet.\nSend a message to coordinate the campus meetup!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: chatProvider.currentMessages.length,
-                        itemBuilder: (context, index) {
-                          final msg = chatProvider.currentMessages[index];
-                          final isMe = msg.senderId == currentStudentId;
-                          final timeStr = DateFormat.jm().format(msg.createdAt);
-
-                          return Align(
-                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              constraints: BoxConstraints(
-                                maxWidth: MediaQuery.of(context).size.width * 0.78,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: isMe ? AppTheme.primaryGradient : null,
-                                color: isMe ? null : Colors.white,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(16),
-                                  topRight: const Radius.circular(16),
-                                  bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                                  bottomRight: isMe ? Radius.zero : const Radius.circular(16),
-                                ),
-                                border: isMe ? null : Border.all(color: AppTheme.dividerColor),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment:
-                                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    msg.message,
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white : AppTheme.textPrimary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    timeStr,
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white.withValues(alpha: 0.7) : AppTheme.textMuted,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-
-          // Chat Input Area
+  Widget _buildSafetyBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 13,
+        vertical: 9,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF062E28),
+            Color(0xFF0F3830),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: AppTheme.dividerColor, width: 1)),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _msgController,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: AppTheme.dividerColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: AppTheme.dividerColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: AppTheme.royalBlue, width: 1.5),
-                        ),
-                      ),
-                      onSubmitted: (_) => _handleSend(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.buttonGradient,
-                      shape: BoxShape.circle,
-                      boxShadow: AppTheme.glowButtonShadow,
-                    ),
-                    child: IconButton(
-                      icon: _isSending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                      onPressed: _handleSend,
-                    ),
-                  ),
-                ],
+            child: const Icon(
+              Icons.shield_rounded,
+              size: 14,
+              color: Color(0xFF34D399),
+            ),
+          ),
+          const SizedBox(width: 9),
+          const Expanded(
+            child: Text(
+              'For your safety, meet in a public campus area for handover.',
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Color(0xFFA7F3D0),
+                fontWeight: FontWeight.w700,
+                height: 1.3,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMessageArea(
+    ChatProvider chatProvider,
+    String? currentStudentId,
+  ) {
+    if (chatProvider.isLoading && chatProvider.currentMessages.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          color: Color(0xFF60A5FA),
+        ),
+      );
+    }
+
+    if (chatProvider.currentMessages.isEmpty) {
+      return _buildEmptyChat();
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        18,
+        16,
+        20,
+      ),
+      itemCount: chatProvider.currentMessages.length,
+      itemBuilder: (context, index) {
+        final msg = chatProvider.currentMessages[index];
+
+        final isMe = msg.senderId == currentStudentId;
+
+        return _buildMessageBubble(
+          message: msg.message,
+          time: DateFormat.jm().format(msg.createdAt),
+          isMe: isMe,
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyChat() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 36,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFF111936),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.forum_outlined,
+                size: 32,
+                color: Color(0xFF60A5FA),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Start the conversation',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 7),
+            const Text(
+              'Ask about the item, price, condition, or arrange a convenient campus meetup location.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble({
+    required String message,
+    required String time,
+    required bool isMe,
+  }) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(
+          14,
+          11,
+          12,
+          8,
+        ),
+        decoration: BoxDecoration(
+          gradient: isMe ? AppTheme.buttonGradient : null,
+          color: isMe ? null : const Color(0xFF111936),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isMe ? 18 : 4),
+            bottomRight: Radius.circular(isMe ? 4 : 18),
+          ),
+          border: isMe
+              ? null
+              : Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13.5,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  time,
+                  style: TextStyle(
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.70)
+                        : const Color(0xFF94A3B8),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isMe) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.done_all_rounded,
+                    size: 13,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        9,
+        12,
+        8,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1128),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _msgController,
+                minLines: 1,
+                maxLines: 4,
+                textCapitalization: TextCapitalization.sentences,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Write a message...',
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF0B1228),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 17,
+                    vertical: 11,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF6366F1),
+                      width: 1.4,
+                    ),
+                  ),
+                ),
+                onSubmitted: (_) => _handleSend(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                gradient: AppTheme.buttonGradient,
+                shape: BoxShape.circle,
+                boxShadow: AppTheme.glowButtonShadow,
+              ),
+              child: IconButton(
+                onPressed: _isSending ? null : _handleSend,
+                splashRadius: 23,
+                icon: _isSending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.arrow_upward_rounded,
+                        color: Colors.white,
+                        size: 21,
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

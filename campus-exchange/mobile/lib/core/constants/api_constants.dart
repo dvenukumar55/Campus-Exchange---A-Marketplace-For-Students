@@ -4,6 +4,7 @@ class ApiConstants {
   // In web environment use localhost; in Android emulator use 10.0.2.2
   static String get baseUrl => kIsWeb ? 'http://localhost:5000/api/v1' : 'http://10.0.2.2:5000/api/v1';
   static String get socketUrl => kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000';
+  static String get uploadsUrl => kIsWeb ? 'http://localhost:5000/uploads' : 'http://10.0.2.2:5000/uploads';
 
   // Auth endpoints
   static const String requestOtp = '/auth/request-otp';

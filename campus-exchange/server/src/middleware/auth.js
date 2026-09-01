@@ -120,10 +120,8 @@ const requireAdmin = (req, res, next) => {
     return next(new UnauthorizedError('Authentication required'));
   }
 
-  if (
-    req.student.role !== USER_ROLE.ADMIN &&
-    req.student.role !== USER_ROLE.MODERATOR
-  ) {
+  const role = (req.student.role || '').toLowerCase();
+  if (role !== USER_ROLE.ADMIN && role !== USER_ROLE.MODERATOR) {
     return next(new ForbiddenError('Administrator access required'));
   }
 

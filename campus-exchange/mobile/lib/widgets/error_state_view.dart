@@ -15,75 +15,142 @@ class ErrorStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        padding: const EdgeInsets.fromLTRB(28, 36, 28, 36),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFEF2F2), Color(0xFFFEE2E2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFECACA), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.errorColor.withValues(alpha: 0.12),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 48,
-                color: AppTheme.errorColor,
-              ),
-            ),
-            const SizedBox(height: 22),
-            const Text(
-              'Unable to load content',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-                letterSpacing: -0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            _buildErrorIllustration(),
             const SizedBox(height: 24),
-            Container(
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: AppTheme.cardShadow,
+            const Text(
+              'Something went wrong',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.45,
+                height: 1.15,
               ),
-              child: ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18, color: Colors.white),
-                label: const Text('Try Again', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  minimumSize: const Size(170, 48),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 360,
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFFCBD5E1),
+                  height: 1.55,
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
+            const SizedBox(height: 26),
+            _buildRetryButton(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorIllustration() {
+    return SizedBox(
+      width: 140,
+      height: 140,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 130,
+            height: 130,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF111936),
+              border: Border.all(
+                color: const Color(0xFFE11D48).withValues(alpha: 0.2),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.15),
+                  blurRadius: 28,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A1525),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFE11D48).withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE11D48).withValues(alpha: 0.3),
+                  blurRadius: 18,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.cloud_off_rounded,
+              size: 34,
+              color: Color(0xFFFB7185),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRetryButton() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppTheme.buttonGradient,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: AppTheme.glowButtonShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          onTap: onRetry,
+          borderRadius: BorderRadius.circular(15),
+          splashColor: Colors.white.withValues(alpha: 0.15),
+          highlightColor: Colors.white.withValues(alpha: 0.06),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 13,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.refresh_rounded,
+                  size: 19,
+                  color: Colors.white,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Try Again',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

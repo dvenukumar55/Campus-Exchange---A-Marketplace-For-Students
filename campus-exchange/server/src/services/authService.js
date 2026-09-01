@@ -263,6 +263,7 @@ class AuthService {
       graduatingYear: student.graduatingYear,
       verificationStatus: student.verificationStatus,
       accountStatus: student.accountStatus,
+      role: student.role || 'student',
       verifiedAt: student.verifiedAt,
       createdAt: student.createdAt,
     };

@@ -3,49 +3,34 @@ import 'package:flutter/material.dart';
 class StatusBadge extends StatelessWidget {
   final String status;
 
-  const StatusBadge({super.key, required this.status});
+  const StatusBadge({
+    super.key,
+    required this.status,
+  });
 
   @override
   Widget build(BuildContext context) {
-    Color bg = const Color(0xFFECFDF5);
-    Color border = const Color(0xFFA7F3D0);
-    Color fg = const Color(0xFF047857);
-    Color dotColor = const Color(0xFF10B981);
-    String label = 'AVAILABLE';
+    final style = _getStatusStyle(status);
 
-    final normalized = status.toLowerCase();
-
-    if (normalized == 'sold') {
-      bg = const Color(0xFFF1F5F9);
-      border = const Color(0xFFCBD5E1);
-      fg = const Color(0xFF475569);
-      dotColor = const Color(0xFF94A3B8);
-      label = 'SOLD';
-    } else if (normalized == 'closed') {
-      bg = const Color(0xFFFEF2F2);
-      border = const Color(0xFFFECACA);
-      fg = const Color(0xFFB91C1C);
-      dotColor = const Color(0xFFEF4444);
-      label = 'CLOSED';
-    } else if (normalized == 'draft') {
-      bg = const Color(0xFFFFFBEB);
-      border = const Color(0xFFFDE68A);
-      fg = const Color(0xFFB45309);
-      dotColor = const Color(0xFFF59E0B);
-      label = 'DRAFT';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
-        color: bg,
+        color: style.background,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: border, width: 1),
+        border: Border.all(
+          color: style.border,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: style.dot.withValues(alpha: 0.18),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -56,22 +41,86 @@ class StatusBadge extends StatelessWidget {
             width: 6,
             height: 6,
             decoration: BoxDecoration(
-              color: dotColor,
+              color: style.dot,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: style.dot.withValues(alpha: 0.6),
+                  blurRadius: 4,
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Text(
-            label,
+            style.label,
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-              color: fg,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+              color: style.foreground,
             ),
           ),
         ],
       ),
     );
   }
+
+  _StatusStyle _getStatusStyle(String value) {
+    final normalized = value.trim().toLowerCase();
+
+    if (normalized == 'sold') {
+      return const _StatusStyle(
+        background: Color(0x2B6366F1),
+        border: Color(0x596366F1),
+        foreground: Color(0xFFA5B4FC),
+        dot: Color(0xFF818CF8),
+        label: 'SOLD',
+      );
+    }
+
+    if (normalized == 'closed') {
+      return const _StatusStyle(
+        background: Color(0x2BE11D48),
+        border: Color(0x59E11D48),
+        foreground: Color(0xFFFDA4AF),
+        dot: Color(0xFFFB7185),
+        label: 'CLOSED',
+      );
+    }
+
+    if (normalized == 'draft' || normalized == 'reserved') {
+      return const _StatusStyle(
+        background: Color(0x2BF59E0B),
+        border: Color(0x59F59E0B),
+        foreground: Color(0xFFFDE68A),
+        dot: Color(0xFFFBBF24),
+        label: 'RESERVED',
+      );
+    }
+
+    return const _StatusStyle(
+      background: Color(0x2B22C55E),
+      border: Color(0x5922C55E),
+      foreground: Color(0xFF86EFAC),
+      dot: Color(0xFF22C55E),
+      label: 'AVAILABLE',
+    );
+  }
+}
+
+class _StatusStyle {
+  final Color background;
+  final Color border;
+  final Color foreground;
+  final Color dot;
+  final String label;
+
+  const _StatusStyle({
+    required this.background,
+    required this.border,
+    required this.foreground,
+    required this.dot,
+    required this.label,
+  });
 }

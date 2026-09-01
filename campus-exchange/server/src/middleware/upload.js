@@ -24,12 +24,34 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (env.STORAGE_ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+  const mimetype = (file.mimetype || '').toLowerCase();
+  const ext = path.extname(file.originalname || '').toLowerCase().replace('.', '');
+
+  const allowedExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'gif',
+    'bmp',
+    'heic',
+    'heif',
+    'tiff',
+    'tif',
+    'svg',
+  ];
+
+  const isAllowedMime =
+    env.STORAGE_ALLOWED_MIME_TYPES.includes(mimetype) ||
+    mimetype.startsWith('image/');
+  const isAllowedExt = allowedExtensions.includes(ext);
+
+  if (isAllowedMime || isAllowedExt) {
     cb(null, true);
   } else {
     cb(
       new BadRequestError(
-        `Invalid file format: ${file.mimetype}. Allowed formats: ${env.STORAGE_ALLOWED_MIME_TYPES.join(', ')}`
+        `Invalid file format: ${file.mimetype || ext}. Allowed formats: JPG, PNG, WEBP, GIF, BMP, HEIC, TIFF`
       ),
       false
     );

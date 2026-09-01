@@ -40,10 +40,10 @@ router.get('/test', (req, res) => {
  */
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const collegeId = req.student.collegeId;
+    const collegeId = req.student.collegeId || 'avih-gunthapalli';
 
     const [
-      college,
+      allColleges,
       totalStudents,
       verifiedStudents,
       activeStudents,
@@ -57,13 +57,18 @@ router.get('/dashboard', async (req, res, next) => {
       campusListingStats,
       recentEvents,
     ] = await Promise.all([
-      College.findOne({ collegeId }).lean(),
-
-      Student.countDocuments({ collegeId }),
+      College.find({}).lean(),
 
       Student.countDocuments({
         collegeId,
-        verificationStatus: 'verified',
+      }),
+
+      Student.countDocuments({
+        collegeId,
+        $or: [
+          { verificationStatus: 'verified' },
+          { status: 'verified' },
+        ],
       }),
 
       Student.countDocuments({
@@ -83,7 +88,7 @@ router.get('/dashboard', async (req, res, next) => {
 
       Listing.countDocuments({
         collegeId,
-        closedReason: 'sold',
+        status: LISTING_STATUS.SOLD,
       }),
 
       Listing.countDocuments({
@@ -93,7 +98,7 @@ router.get('/dashboard', async (req, res, next) => {
 
       Report.countDocuments({
         collegeId,
-        status: REPORT_STATUS.OPEN,
+        status: { $in: ['open', 'pending', REPORT_STATUS.OPEN] },
       }),
 
       Report.countDocuments({
@@ -115,13 +120,7 @@ router.get('/dashboard', async (req, res, next) => {
         },
       ]),
 
-
       Listing.aggregate([
-        {
-          $match: {
-            collegeId,
-          },
-        },
         {
           $group: {
             _id: '$collegeId',
@@ -137,6 +136,7 @@ router.get('/dashboard', async (req, res, next) => {
             },
           },
         },
+        { $sort: { listingCount: -1 } },
       ]),
 
       PilotEvent.find({
@@ -147,22 +147,56 @@ router.get('/dashboard', async (req, res, next) => {
         .lean(),
     ]);
 
+    const collegeMap = {};
+    for (const c of allColleges) {
+      collegeMap[c.collegeId] = c.name;
+    }
+    collegeMap['avih-gunthapalli'] =
+      'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli';
+
+    const currentCollege = allColleges.find((c) => c.collegeId === collegeId);
+
     const marketVolume =
-      volumeResult.length > 0
-        ? Number(volumeResult[0].total || 0)
-        : 0;
+      volumeResult.length > 0 ? Number(volumeResult[0].total || 0) : 0;
+
+    const campuses = campusListingStats.map((item) => ({
+      collegeId: item._id,
+      name:
+        collegeMap[item._id] ||
+        (item._id === 'avih-gunthapalli'
+          ? 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli'
+          : item._id),
+      listingCount: item.listingCount || 0,
+      activeCount: item.activeCount || 0,
+    }));
+
+    if (campuses.length === 0) {
+      campuses.push({
+        collegeId: collegeId || 'avih-gunthapalli',
+        name: currentCollege
+          ? currentCollege.name
+          : 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+        listingCount: 0,
+        activeCount: 0,
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        college: college
+        college: currentCollege
           ? {
-              collegeId: college.collegeId,
-              name: college.name,
-              verificationDomain: college.verificationDomain,
-              status: college.status,
+              collegeId: currentCollege.collegeId,
+              name: currentCollege.name,
+              verificationDomain: currentCollege.verificationDomain,
+              status: currentCollege.status,
             }
-          : null,
+          : {
+              collegeId: 'avih-gunthapalli',
+              name: 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+              verificationDomain: 'avih.edu.in',
+              status: 'active',
+            },
 
         students: {
           total: totalStudents,
@@ -175,7 +209,7 @@ router.get('/dashboard', async (req, res, next) => {
           active: activeListings,
           sold: soldListings,
           closed: closedListings,
-          total: activeListings + closedListings,
+          total: activeListings + soldListings + closedListings,
         },
 
         reports: {
@@ -187,12 +221,7 @@ router.get('/dashboard', async (req, res, next) => {
           volume: marketVolume,
         },
 
-        campuses: campusListingStats.map((item) => ({
-          collegeId: item._id,
-          listingCount: item.listingCount,
-          activeCount: item.activeCount,
-        })),
-
+        campuses,
         recentEvents,
       },
     });
