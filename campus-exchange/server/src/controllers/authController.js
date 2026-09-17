@@ -90,7 +90,11 @@ class AuthController {
    */
   async logout(req, res, next) {
     try {
-      const result = await authService.logout(req.sessionId, req.student?.studentId);
+      const result = await authService.logout(
+        req.sessionId,
+        req.student?.studentId,
+        req.student?.collegeId
+      );
       return sendSuccess(res, 200, result);
     } catch (error) {
       next(error);

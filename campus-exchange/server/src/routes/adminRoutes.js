@@ -13,7 +13,85 @@ const College = require('../models/College');
 const {
   LISTING_STATUS,
   REPORT_STATUS,
+  PILOT_EVENT_TYPES,
 } = require('../config/constants');
+
+const ADMIN_RECENT_EVENT_TYPES = [
+  PILOT_EVENT_TYPES.REPORT_SUBMITTED,
+  PILOT_EVENT_TYPES.REPORT_RESOLVED,
+  PILOT_EVENT_TYPES.USER_WARNED,
+  PILOT_EVENT_TYPES.USER_BLOCKED,
+  PILOT_EVENT_TYPES.LISTING_CREATED,
+  PILOT_EVENT_TYPES.LISTING_UPDATED,
+  PILOT_EVENT_TYPES.LISTING_CLOSED_SOLD,
+  PILOT_EVENT_TYPES.LISTING_CLOSED_CANCELLED,
+  PILOT_EVENT_TYPES.STUDENT_SIGNUP_VERIFIED,
+];
+
+function enrichEvents(rawEvents, students, listings) {
+  const studentMap = {};
+  for (const s of students) {
+    studentMap[s.studentId] = s;
+  }
+
+  const listingMap = {};
+  for (const l of listings) {
+    listingMap[l.listingId] = l;
+  }
+
+  return rawEvents.map((e) => {
+    const student = studentMap[e.studentId];
+    const listing = listingMap[e.listingId];
+    const actor = student
+      ? student.fullName
+      : (e.metadata?.actor || e.studentId || 'System');
+    let target = 'Campus';
+    if (listing) {
+      target = listing.title;
+    } else if (e.metadata?.listingTitle) {
+      target = e.metadata.listingTitle;
+    } else if (e.metadata?.reportId) {
+      target = `Report #${e.metadata.reportId}`;
+    } else if (e.studentId && e.eventType && e.eventType.includes('STUDENT')) {
+      target = student
+        ? `${student.fullName} (${student.rollNumber || student.studentId})`
+        : e.studentId;
+    }
+
+    return {
+      eventId: e.eventId,
+      eventType: e.eventType,
+      collegeId: e.collegeId,
+      studentId: e.studentId,
+      listingId: e.listingId,
+      actor,
+      actorEmail: student ? student.officialEmail : null,
+      target,
+      occurredAt: e.occurredAt,
+      metadata: e.metadata || {},
+    };
+  });
+}
+
+function deduplicateEvents(eventList) {
+  const deduped = [];
+  for (const ev of eventList) {
+    if (deduped.length > 0) {
+      const prev = deduped[deduped.length - 1];
+      const sameType = prev.eventType === ev.eventType;
+      const sameActor = prev.studentId === ev.studentId;
+      const sameTarget = prev.listingId === ev.listingId;
+      const timeDiff = Math.abs(
+        new Date(prev.occurredAt) - new Date(ev.occurredAt)
+      );
+      if (sameType && sameActor && sameTarget && timeDiff < 3600000) {
+        continue;
+      }
+    }
+    deduped.push(ev);
+  }
+  return deduped;
+}
 
 /*
  * All admin routes require:
@@ -55,7 +133,9 @@ router.get('/dashboard', async (req, res, next) => {
       totalReports,
       volumeResult,
       campusListingStats,
-      recentEvents,
+      rawRecentEvents,
+      studentsList,
+      listingsList,
     ] = await Promise.all([
       College.find({}).lean(),
 
@@ -141,41 +221,67 @@ router.get('/dashboard', async (req, res, next) => {
 
       PilotEvent.find({
         collegeId,
+        eventType: { $in: ADMIN_RECENT_EVENT_TYPES },
       })
         .sort({ occurredAt: -1 })
         .limit(20)
         .lean(),
+
+      Student.find({
+        collegeId,
+      })
+        .select('studentId fullName officialEmail rollNumber')
+        .lean(),
+
+      Listing.find({
+        collegeId,
+      })
+        .select('listingId title price category')
+        .lean(),
     ]);
+
+    const recentEvents = deduplicateEvents(
+      enrichEvents(rawRecentEvents, studentsList, listingsList)
+    );
 
     const collegeMap = {};
     for (const c of allColleges) {
       collegeMap[c.collegeId] = c.name;
     }
-    collegeMap['avih-gunthapalli'] =
-      'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli';
 
     const currentCollege = allColleges.find((c) => c.collegeId === collegeId);
 
     const marketVolume =
       volumeResult.length > 0 ? Number(volumeResult[0].total || 0) : 0;
 
-    const campuses = campusListingStats.map((item) => ({
-      collegeId: item._id,
-      name:
-        collegeMap[item._id] ||
-        (item._id === 'avih-gunthapalli'
-          ? 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli'
-          : item._id),
-      listingCount: item.listingCount || 0,
-      activeCount: item.activeCount || 0,
+    const statsMap = {};
+    for (const item of campusListingStats) {
+      statsMap[item._id] = {
+        listingCount: item.listingCount || 0,
+        activeCount: item.activeCount || 0,
+      };
+    }
+
+    let campuses = allColleges.map((c) => ({
+      collegeId: c.collegeId,
+      name: c.name || c.collegeId,
+      listingCount: statsMap[c.collegeId]?.listingCount || 0,
+      activeCount: statsMap[c.collegeId]?.activeCount || 0,
     }));
 
     if (campuses.length === 0) {
+      campuses = campusListingStats.map((item) => ({
+        collegeId: item._id,
+        name: collegeMap[item._id] || item._id,
+        listingCount: item.listingCount || 0,
+        activeCount: item.activeCount || 0,
+      }));
+    }
+
+    if (campuses.length === 0) {
       campuses.push({
-        collegeId: collegeId || 'avih-gunthapalli',
-        name: currentCollege
-          ? currentCollege.name
-          : 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
+        collegeId: collegeId,
+        name: currentCollege ? currentCollege.name : collegeId,
         listingCount: 0,
         activeCount: 0,
       });
@@ -192,9 +298,9 @@ router.get('/dashboard', async (req, res, next) => {
               status: currentCollege.status,
             }
           : {
-              collegeId: 'avih-gunthapalli',
-              name: 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli',
-              verificationDomain: 'avih.edu.in',
+              collegeId,
+              name: collegeMap[collegeId] || collegeId,
+              verificationDomain: 'edu.in',
               status: 'active',
             },
 
@@ -297,12 +403,30 @@ router.get('/reports', async (req, res, next) => {
  */
 router.get('/audit-logs', async (req, res, next) => {
   try {
-    const events = await PilotEvent.find({
-      collegeId: req.student.collegeId,
-    })
-      .sort({ occurredAt: -1 })
-      .limit(100)
-      .lean();
+    const collegeId = req.student.collegeId;
+
+    const [rawEvents, studentsList, listingsList] = await Promise.all([
+      PilotEvent.find({
+        collegeId,
+      })
+        .sort({ occurredAt: -1 })
+        .limit(100)
+        .lean(),
+      Student.find({
+        collegeId,
+      })
+        .select('studentId fullName officialEmail rollNumber')
+        .lean(),
+      Listing.find({
+        collegeId,
+      })
+        .select('listingId title price category')
+        .lean(),
+    ]);
+
+    const events = deduplicateEvents(
+      enrichEvents(rawEvents, studentsList, listingsList)
+    );
 
     res.json({
       success: true,

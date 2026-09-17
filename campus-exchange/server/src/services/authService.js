@@ -190,9 +190,9 @@ class AuthService {
   }
 
   /**
-   * Session logout: revokes the active session in MongoDB.
+   * Session logout: revokes the active session in MongoDB and logs audit event.
    */
-  async logout(sessionId, studentId) {
+  async logout(sessionId, studentId, collegeId) {
     if (sessionId) {
       await Session.updateMany(
         {
@@ -207,6 +207,18 @@ class AuthService {
         }
       );
     }
+
+    if (studentId) {
+      await eventService.recordEvent({
+        eventType: PILOT_EVENT_TYPES.STUDENT_LOGOUT,
+        collegeId: collegeId || env.DEFAULT_COLLEGE_ID,
+        studentId,
+        metadata: {
+          sessionId,
+        },
+      });
+    }
+
     return { success: true, message: 'Logged out successfully' };
   }
 

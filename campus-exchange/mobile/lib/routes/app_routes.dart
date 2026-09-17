@@ -40,8 +40,30 @@ class AppRoutes {
       case marketplace:
         return MaterialPageRoute(builder: (_) => const MarketplaceScreen());
       case listingDetail:
-        final listing = settings.arguments as Listing;
-        return MaterialPageRoute(builder: (_) => ListingDetailScreen(listing: listing));
+        if (settings.arguments is Listing) {
+          return MaterialPageRoute(
+            builder: (_) => ListingDetailScreen(
+              listing: settings.arguments as Listing,
+            ),
+          );
+        } else if (settings.arguments is String) {
+          return MaterialPageRoute(
+            builder: (_) => ListingDetailScreen(
+              listingId: settings.arguments as String,
+            ),
+          );
+        } else if (settings.arguments is Map<String, dynamic>) {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => ListingDetailScreen(
+              listing: args['listing'] as Listing?,
+              listingId: args['listingId']?.toString(),
+            ),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const ListingDetailScreen(),
+        );
       case createListing:
         return MaterialPageRoute(builder: (_) => const CreateListingScreen());
       case editListing:

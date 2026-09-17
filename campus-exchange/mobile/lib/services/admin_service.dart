@@ -27,6 +27,9 @@ class CampusStat {
 }
 
 class AdminDashboardData {
+  final String collegeName;
+  final String verificationDomain;
+
   final int totalStudents;
   final int verifiedStudents;
   final int activeStudents;
@@ -45,6 +48,8 @@ class AdminDashboardData {
   final List<Map<String, dynamic>> recentEvents;
 
   AdminDashboardData({
+    this.collegeName = 'Campus',
+    this.verificationDomain = 'edu.in',
     required this.totalStudents,
     required this.verifiedStudents,
     required this.activeStudents,
@@ -61,6 +66,7 @@ class AdminDashboardData {
   });
 
   factory AdminDashboardData.fromJson(Map<String, dynamic> json) {
+    final college = json['college'] as Map<String, dynamic>? ?? {};
     final students = json['students'] as Map<String, dynamic>? ?? {};
     final listings = json['listings'] as Map<String, dynamic>? ?? {};
     final reports = json['reports'] as Map<String, dynamic>? ?? {};
@@ -69,6 +75,8 @@ class AdminDashboardData {
     final rawEvents = json['recentEvents'] as List? ?? [];
 
     return AdminDashboardData(
+      collegeName: college['name']?.toString() ?? 'Campus',
+      verificationDomain: college['verificationDomain']?.toString() ?? 'edu.in',
       totalStudents: (students['total'] as num?)?.toInt() ?? 0,
       verifiedStudents: (students['verified'] as num?)?.toInt() ?? 0,
       activeStudents: (students['active'] as num?)?.toInt() ?? 0,

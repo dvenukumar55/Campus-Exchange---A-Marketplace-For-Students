@@ -16,7 +16,7 @@ class EventService {
 
       // Check in-memory deduplicator to prevent bursts
       const dedupeKey = `${eventType}:${collegeId}:${studentId || ''}:${listingId || ''}:${metadata?.actionId || ''}`;
-      if (metadata?.actionId && isDuplicate(dedupeKey)) {
+      if (isDuplicate(dedupeKey)) {
         logger.info('Suppressed duplicate pilot event submission', { dedupeKey, eventType });
         return { eventId: generatedEventId, recorded: false, duplicate: true };
       }

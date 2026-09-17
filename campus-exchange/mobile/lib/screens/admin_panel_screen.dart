@@ -295,7 +295,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     final pendingReports = _dashboardData?.pendingReports ?? 0;
     final totalVolume = _dashboardData?.marketVolume ?? 0.0;
     final campuses = _dashboardData?.campuses ?? [];
-    final recentEvents = _dashboardData?.recentEvents ?? _auditLogs;
+    final recentEvents = _dashboardData?.recentEvents ?? [];
 
     return RefreshIndicator(
       onRefresh: _loadAllAdminData,
@@ -805,17 +805,67 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   }
 
   String _getEventDescription(String action, Map<String, dynamic> log) {
+    final meta = log['metadata'] is Map<String, dynamic>
+        ? log['metadata'] as Map<String, dynamic>
+        : (log['metadata'] is Map
+            ? Map<String, dynamic>.from(log['metadata'] as Map)
+            : <String, dynamic>{});
+    final studentId = log['studentId']?.toString();
+    final listingId = log['listingId']?.toString();
+
     switch (action) {
       case 'STUDENT_LOGIN':
-        return 'Student authenticated successfully.';
-      case 'LISTING_CREATED':
-        return 'New marketplace listing published.';
-      case 'CHAT_MESSAGE_SENT':
-        return 'Buyer initiated chat message.';
+        return studentId != null && studentId.isNotEmpty
+            ? 'Student $studentId authenticated successfully.'
+            : 'Student authenticated successfully.';
+      case 'STUDENT_LOGOUT':
+        return studentId != null && studentId.isNotEmpty
+            ? 'Student $studentId signed out securely.'
+            : 'Student signed out securely.';
       case 'STUDENT_SIGNUP_VERIFIED':
-        return 'New student verified institutional roll number.';
+        final domain = meta['emailDomain']?.toString() ?? '';
+        return domain.isNotEmpty
+            ? 'New student registered and verified with @$domain.'
+            : 'New student verified institutional identity.';
+      case 'LISTING_CREATED':
+        final category = meta['category']?.toString();
+        final price = meta['price'];
+        if (category != null && price != null) {
+          return 'New listing published in $category for ₹$price.';
+        }
+        return 'New marketplace listing published.';
+      case 'LISTING_UPDATED':
+        return listingId != null
+            ? 'Listing $listingId details updated.'
+            : 'Listing details updated.';
+      case 'LISTING_CLOSED_SOLD':
+        final price = meta['price'];
+        return price != null
+            ? 'Listing marked SOLD for ₹$price.'
+            : 'Listing marked as sold.';
+      case 'LISTING_CLOSED_CANCELLED':
+        return 'Listing closed or withdrawn from marketplace.';
+      case 'CHAT_CONVERSATION_INITIATED':
+        return 'Peer student started new chat conversation.';
+      case 'CHAT_MESSAGE_SENT':
+        return 'Direct buyer-seller chat message sent.';
+      case 'REPORT_SUBMITTED':
+        final reason = meta['reason']?.toString();
+        return reason != null && reason.isNotEmpty
+            ? 'Incident report submitted: $reason.'
+            : 'Incident report submitted for moderation.';
       case 'REPORT_RESOLVED':
-        return 'Moderation report marked resolved.';
+        final actionTaken = meta['actionTaken']?.toString();
+        return actionTaken != null && actionTaken.isNotEmpty
+            ? 'Report reviewed and resolved: $actionTaken.'
+            : 'Moderation report marked resolved.';
+      case 'USER_WARNED':
+        final reviewer = meta['reviewerId']?.toString();
+        return reviewer != null
+            ? 'Official moderation warning issued by $reviewer.'
+            : 'Official moderation warning issued to student.';
+      case 'USER_BLOCKED':
+        return 'Student account suspended due to policy violations.';
       default:
         return 'System administrative telemetry logged.';
     }
@@ -1606,8 +1656,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
       return _buildEmptyAdminState(
         icon: Icons.history_edu_rounded,
         title: 'No Audit Records',
-        message:
-            'No administrative actions or events logged in the database yet.',
+        message: 'No audit activity yet.',
         success: true,
       );
     }
@@ -1627,10 +1676,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           final action = log['eventType']?.toString() ??
               log['action']?.toString() ??
               'SYSTEM_EVENT';
-          final target = log['listingId']?.toString() ??
+          final target = log['target']?.toString() ??
+              log['listingId']?.toString() ??
               log['reportId']?.toString() ??
               log['studentId']?.toString() ??
-              log['target']?.toString() ??
               'Campus';
           final actor =
               log['actor']?.toString() ?? log['studentId']?.toString() ?? 'System';
@@ -1638,9 +1687,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               log['details']?.toString() ?? _getEventDescription(action, log);
           final rawTime =
               log['occurredAt'] ?? log['createdAt'] ?? log['timestamp'];
-          final timestamp = rawTime != null
-              ? (DateTime.tryParse(rawTime.toString()) ?? DateTime.now())
-              : DateTime.now();
+          final parsedTime =
+              rawTime != null ? DateTime.tryParse(rawTime.toString()) : null;
+          final timeDisplay = parsedTime != null
+              ? DateFormat('dd MMM, HH:mm').format(parsedTime)
+              : 'Unknown time';
 
           return Container(
             margin: const EdgeInsets.only(bottom: 11),
@@ -1707,7 +1758,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            DateFormat('dd MMM, HH:mm').format(timestamp),
+                            timeDisplay,
                             style: const TextStyle(
                               fontSize: 9.5,
                               color: Color(0xFF64748B),
@@ -1781,9 +1832,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildSettingsTab() {
-    final collegeName = _dashboardData?.campuses.isNotEmpty == true
-        ? _dashboardData!.campuses.first.name
-        : 'Avanthi Institute of Engineering and Technology (AVIH), Gunthapalli';
+    final collegeName = _dashboardData?.collegeName.isNotEmpty == true
+        ? _dashboardData!.collegeName
+        : (_dashboardData?.campuses.isNotEmpty == true
+            ? _dashboardData!.campuses.first.name
+            : 'Campus Marketplace');
+    final domain = _dashboardData?.verificationDomain.isNotEmpty == true
+        ? '@${_dashboardData!.verificationDomain}'
+        : '@edu.in';
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -1826,7 +1882,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildDomainRow(
-                  '@gmail.com',
+                  domain,
                   collegeName,
                 ),
               ],

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../models/notification_model.dart';
 import '../providers/notification_provider.dart';
 import '../routes/app_routes.dart';
-import '../services/listing_service.dart';
 import '../widgets/empty_state_view.dart';
 import '../widgets/error_state_view.dart';
 
@@ -17,8 +16,6 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final ListingService _listingService = ListingService();
-  bool _isOpeningListing = false;
 
   @override
   void initState() {
@@ -39,65 +36,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
 
     if (!notif.isRead) {
-      await notificationProvider.markAsRead(notif.notificationId);
+      notificationProvider.markAsRead(notif.notificationId);
     }
 
     if (notif.type == 'NEW_LISTING' && notif.listingId.isNotEmpty) {
-      if (_isOpeningListing) return;
-
-      setState(() {
-        _isOpeningListing = true;
-      });
-
-      try {
-        final listing = await _listingService.getListingById(
-          notif.listingId,
-        );
-
-        if (!mounted) return;
-
-        setState(() {
-          _isOpeningListing = false;
-        });
-
-        Navigator.pushNamed(
-          context,
-          AppRoutes.listingDetail,
-          arguments: listing,
-        );
-      } catch (e) {
-        if (!mounted) return;
-
-        setState(() {
-          _isOpeningListing = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            content: const Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'This listing is no longer available.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFFFB923C),
-          ),
-        );
-      }
+      Navigator.pushNamed(
+        context,
+        AppRoutes.listingDetail,
+        arguments: notif.listingId,
+      );
     }
   }
 
@@ -167,19 +114,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ),
         ),
       ),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: () => notificationProvider.loadNotifications(
-              isRefresh: true,
-            ),
-            color: const Color(0xFF60A5FA),
-            backgroundColor: const Color(0xFF111936),
-            displacement: 18,
-            child: _buildBody(notificationProvider),
-          ),
-          if (_isOpeningListing) _buildLoadingOverlay(),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () => notificationProvider.loadNotifications(
+          isRefresh: true,
+        ),
+        color: const Color(0xFF60A5FA),
+        backgroundColor: const Color(0xFF111936),
+        displacement: 18,
+        child: _buildBody(notificationProvider),
       ),
     );
   }
@@ -237,58 +179,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingOverlay() {
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.6),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 22,
-              vertical: 18,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111936),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.3,
-                    color: Color(0xFF60A5FA),
-                  ),
-                ),
-                SizedBox(width: 12),
-                Text(
-                  'Opening listing...',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

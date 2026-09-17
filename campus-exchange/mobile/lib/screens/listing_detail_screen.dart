@@ -7,22 +7,204 @@ import '../core/theme/app_theme.dart';
 import '../models/listing.dart';
 import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
+import '../services/listing_service.dart';
 import '../widgets/condition_badge.dart';
+import '../widgets/error_state_view.dart';
 import '../widgets/status_badge.dart';
 
-class ListingDetailScreen extends StatelessWidget {
-  final Listing listing;
+class ListingDetailScreen extends StatefulWidget {
+  final Listing? listing;
+  final String? listingId;
 
   const ListingDetailScreen({
     super.key,
-    required this.listing,
+    this.listing,
+    this.listingId,
   });
+
+  @override
+  State<ListingDetailScreen> createState() => _ListingDetailScreenState();
+}
+
+class _ListingDetailScreenState extends State<ListingDetailScreen> {
+  final ListingService _listingService = ListingService();
+  Listing? _listing;
+  bool _isLoading = false;
+  String? _errorMessage;
+  bool _isNotFound = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listing = widget.listing;
+
+    final targetId = widget.listing?.listingId ?? widget.listingId;
+    if (_listing == null && targetId != null && targetId.isNotEmpty) {
+      _fetchListingDetails(targetId);
+    }
+  }
+
+  Future<void> _fetchListingDetails(String listingId) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isNotFound = false;
+    });
+
+    try {
+      final fetched = await _listingService.getListingById(listingId);
+      if (!mounted) return;
+      setState(() {
+        _listing = fetched;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final errorStr = e.toString().toLowerCase();
+      final notFound = errorStr.contains('404') ||
+          errorStr.contains('not found') ||
+          errorStr.contains('could not be found') ||
+          errorStr.contains('unavailable');
+
+      setState(() {
+        _isLoading = false;
+        if (notFound) {
+          _isNotFound = true;
+        } else {
+          _errorMessage = e.toString();
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isSeller =
-        authProvider.currentStudent?.studentId == listing.sellerId;
+
+    if (_isLoading && _listing == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B1128),
+        appBar: _buildBasicAppBar(context),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Color(0xFF60A5FA),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Loading listing details...',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isNotFound && _listing == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B1128),
+        appBar: _buildBasicAppBar(context),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFB923C).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFFB923C).withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 40,
+                    color: Color(0xFFFB923C),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Listing unavailable',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'This listing may have been removed, closed by the seller, or is no longer available.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text(
+                    'Go Back',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 13,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null && _listing == null) {
+      final targetId = widget.listing?.listingId ?? widget.listingId ?? '';
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B1128),
+        appBar: _buildBasicAppBar(context),
+        body: Center(
+          child: ErrorStateView(
+            message: _errorMessage!,
+            onRetry: () => _fetchListingDetails(targetId),
+          ),
+        ),
+      );
+    }
+
+    final listing = _listing!;
+    final isSeller = authProvider.currentStudent?.studentId == listing.sellerId;
     final formattedDate = DateFormat.yMMMMd().format(listing.createdAt);
     final categoryColor = _getCategoryAccentColor(listing.category);
 
@@ -95,32 +277,69 @@ class ListingDetailScreen extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 110),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeroSection(categoryColor),
-                  _buildMainInformation(
-                    context,
-                    categoryColor,
-                    formattedDate,
-                  ),
-                  _buildDescriptionSection(),
-                  _buildSellerSection(categoryColor),
-                  _buildSafetySection(),
-                ],
+            child: RefreshIndicator(
+              onRefresh: () => _fetchListingDetails(listing.listingId),
+              color: const Color(0xFF60A5FA),
+              backgroundColor: const Color(0xFF111936),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.only(bottom: 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeroSection(listing, categoryColor),
+                    _buildMainInformation(
+                      context,
+                      listing,
+                      categoryColor,
+                      formattedDate,
+                    ),
+                    _buildDescriptionSection(listing),
+                    _buildSellerSection(listing, categoryColor),
+                    _buildSafetySection(),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomAction(context, isSeller),
+      bottomNavigationBar: _buildBottomAction(context, listing, isSeller),
     );
   }
 
-  Widget _buildHeroSection(Color categoryColor) {
+  PreferredSizeWidget _buildBasicAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: const Color(0xFF0B1128),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        tooltip: 'Back',
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        onPressed: () => Navigator.maybePop(context),
+      ),
+      title: const Text(
+        'Item Details',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: -0.3,
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          height: 1,
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroSection(Listing listing, Color categoryColor) {
     return Container(
       height: 230,
       width: double.infinity,
@@ -172,16 +391,17 @@ class ListingDetailScreen extends StatelessWidget {
                 '${ApiConstants.uploadsUrl}/${listing.photoRefs.first}',
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _buildCategoryIconHeroFallback(
+                  listing,
                   categoryColor,
                 ),
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
-                  return _buildCategoryIconHeroFallback(categoryColor);
+                  return _buildCategoryIconHeroFallback(listing, categoryColor);
                 },
               ),
             )
           else
-            _buildCategoryIconHeroFallback(categoryColor),
+            _buildCategoryIconHeroFallback(listing, categoryColor),
           Positioned(
             top: 16,
             left: 16,
@@ -210,7 +430,7 @@ class ListingDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryIconHeroFallback(Color categoryColor) {
+  Widget _buildCategoryIconHeroFallback(Listing listing, Color categoryColor) {
     return Center(
       child: Container(
         width: 110,
@@ -280,6 +500,7 @@ class ListingDetailScreen extends StatelessWidget {
 
   Widget _buildMainInformation(
     BuildContext context,
+    Listing listing,
     Color categoryColor,
     String formattedDate,
   ) {
@@ -426,7 +647,7 @@ class ListingDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDescriptionSection() {
+  Widget _buildDescriptionSection(Listing listing) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
       child: Column(
@@ -455,7 +676,9 @@ class ListingDetailScreen extends StatelessWidget {
               ],
             ),
             child: Text(
-              listing.description,
+              listing.description.isNotEmpty
+                  ? listing.description
+                  : 'No detailed description provided by seller.',
               style: const TextStyle(
                 fontSize: 13.5,
                 color: Color(0xFFCBD5E1),
@@ -469,7 +692,7 @@ class ListingDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSellerSection(Color categoryColor) {
+  Widget _buildSellerSection(Listing listing, Color categoryColor) {
     final sellerInitial = listing.sellerName.isNotEmpty
         ? listing.sellerName.substring(0, 1).toUpperCase()
         : '?';
@@ -685,6 +908,7 @@ class ListingDetailScreen extends StatelessWidget {
 
   Widget _buildBottomAction(
     BuildContext context,
+    Listing listing,
     bool isSeller,
   ) {
     return SafeArea(
@@ -708,93 +932,95 @@ class ListingDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
-        child: isSeller
-            ? SizedBox(
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.editListing,
-                      arguments: listing,
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    size: 19,
-                  ),
-                  label: const Text(
-                    'Manage My Listing',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF60A5FA),
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.15),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              )
-            : SizedBox(
-                height: 50,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: listing.isActive ? AppTheme.buttonGradient : null,
-                    color: listing.isActive ? null : const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow:
-                        listing.isActive ? AppTheme.glowButtonShadow : null,
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: listing.isActive
-                        ? () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.chat,
-                              arguments: {
-                                'listing': listing,
-                                'listingId': listing.listingId,
-                              },
-                            );
-                          }
-                        : null,
-                    icon: const Icon(
-                      Icons.chat_bubble_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      listing.isActive
-                          ? 'Chat with Seller'
-                          : 'Item Unavailable',
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+            child: isSeller
+                ? SizedBox(
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.editListing,
+                          arguments: listing,
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 19,
+                      ),
+                      label: const Text(
+                        'Manage My Listing',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF60A5FA),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      disabledBackgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
+                  )
+                : SizedBox(
+                    height: 50,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient:
+                            listing.isActive ? AppTheme.buttonGradient : null,
+                        color:
+                            listing.isActive ? null : const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(14),
+                        boxShadow:
+                            listing.isActive ? AppTheme.glowButtonShadow : null,
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: listing.isActive
+                            ? () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.chat,
+                                  arguments: {
+                                    'listing': listing,
+                                    'listingId': listing.listingId,
+                                  },
+                                );
+                              }
+                            : null,
+                        icon: const Icon(
+                          Icons.chat_bubble_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          listing.isActive
+                              ? 'Chat with Seller'
+                              : 'Item Unavailable',
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          disabledBackgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   IconData _getCategoryIcon(String category) {
