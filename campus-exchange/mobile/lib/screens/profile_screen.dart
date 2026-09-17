@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/utils/display_utils.dart';
 import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
 
@@ -57,18 +58,22 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-        child: Column(
-          children: [
-            _buildProfileHero(
-              displayName: displayName,
-              email: email,
-              initial: initial,
-              isAdmin: isAdmin,
-              isVerified: student?.isVerified == true,
-            ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+              child: Column(
+                children: [
+                  _buildProfileHero(
+                    displayName: displayName,
+                    email: formatDisplayEmail(email),
+                    initial: initial,
+                    isAdmin: isAdmin,
+                    isVerified: student?.isVerified == true,
+                  ),
             const SizedBox(height: 16),
             _buildSectionCard(
               title: 'Campus Information',
@@ -126,20 +131,20 @@ class ProfileScreen extends StatelessWidget {
                     );
                   },
                 ),
-                _buildDivider(),
-                _buildActionTile(
-                  icon: Icons.insights_rounded,
-                  title: 'Marketplace Metrics',
-                  subtitle: 'View marketplace performance',
-                  color: const Color(0xFF2DD4BF),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.metricsDashboard,
-                    );
-                  },
-                ),
                 if (canAccessAdmin) ...[
+                  _buildDivider(),
+                  _buildActionTile(
+                    icon: Icons.insights_rounded,
+                    title: 'Marketplace Metrics',
+                    subtitle: 'View marketplace performance',
+                    color: const Color(0xFF2DD4BF),
+                    onTap: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.metricsDashboard,
+                      );
+                    },
+                  ),
                   _buildDivider(),
                   _buildActionTile(
                     icon: Icons.admin_panel_settings_rounded,
@@ -206,8 +211,11 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+),
+);
+}
 
   Widget _buildProfileHero({
     required String displayName,
@@ -574,7 +582,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           content: const Text(
-            'Are you sure you want to sign out of Campus Exchange? You will need to sign in again with your institutional email and roll number.',
+            'Are you sure you want to sign out of Campus Exchange? You will need to sign in again with your email and roll number.',
             style: TextStyle(
               fontSize: 13,
               color: Color(0xFFCBD5E1),

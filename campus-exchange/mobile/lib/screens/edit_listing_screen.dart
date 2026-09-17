@@ -128,18 +128,25 @@ class _EditListingScreenState extends State<EditListingScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildListingPreview(),
-            const SizedBox(height: 16),
-            _buildStatusSection(),
-            const SizedBox(height: 16),
-            _buildInfoCard(),
-          ],
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildListingPreview(),
+                  const SizedBox(height: 16),
+                  _buildStatusSection(),
+                  const SizedBox(height: 16),
+                  _buildInfoCard(),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

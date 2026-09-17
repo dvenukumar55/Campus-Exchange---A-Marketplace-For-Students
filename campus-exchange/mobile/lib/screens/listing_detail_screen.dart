@@ -92,22 +92,27 @@ class ListingDetailScreen extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 110),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeroSection(categoryColor),
-              _buildMainInformation(
-                context,
-                categoryColor,
-                formattedDate,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 110),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroSection(categoryColor),
+                  _buildMainInformation(
+                    context,
+                    categoryColor,
+                    formattedDate,
+                  ),
+                  _buildDescriptionSection(),
+                  _buildSellerSection(categoryColor),
+                  _buildSafetySection(),
+                ],
               ),
-              _buildDescriptionSection(),
-              _buildSellerSection(categoryColor),
-              _buildSafetySection(),
-            ],
+            ),
           ),
         ),
       ),
@@ -285,31 +290,33 @@ class ListingDetailScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: categoryColor.withValues(alpha: 0.3),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
                   ),
-                ),
-                child: Text(
-                  listing.category.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                    color: categoryColor,
-                    letterSpacing: 0.7,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: categoryColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    listing.category.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      color: categoryColor,
+                      letterSpacing: 0.7,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 'Listed $formattedDate',
                 textAlign: TextAlign.end,
@@ -681,23 +688,26 @@ class ListingDetailScreen extends StatelessWidget {
     bool isSeller,
   ) {
     return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0B1128),
-          border: Border(
-            top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1128),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
+                ),
+              ],
             ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
         child: isSeller
             ? SizedBox(
                 height: 50,
@@ -781,8 +791,10 @@ class ListingDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-      ),
-    );
+            ),
+          ),
+        ),
+      );
   }
 
   IconData _getCategoryIcon(String category) {

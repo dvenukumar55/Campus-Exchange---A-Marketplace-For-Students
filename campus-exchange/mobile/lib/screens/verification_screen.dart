@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/utils/display_utils.dart';
 import '../providers/auth_provider.dart';
 import '../routes/app_routes.dart';
 
@@ -86,7 +87,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Verification code sent to $email',
+            'Verification code sent to ${formatDisplayEmail(email)}',
           ),
           backgroundColor: const Color(0xFF16A34A),
           behavior: SnackBarBehavior.floating,
@@ -314,22 +315,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                22,
-                30,
-                22,
-                28,
-              ),
-              child: Column(
-                children: [
-                  _buildBrandHeader(),
-                  const SizedBox(height: 28),
-                  _buildMainCard(authProvider),
-                  const SizedBox(height: 20),
-                  _buildSecurityFooter(),
-                ],
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    30,
+                    22,
+                    28,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildBrandHeader(),
+                      const SizedBox(height: 28),
+                      _buildMainCard(authProvider),
+                      const SizedBox(height: 20),
+                      _buildSecurityFooter(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -626,7 +632,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    _emailController.text.trim().toLowerCase(),
+                    formatDisplayEmail(_emailController.text.trim().toLowerCase()),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -675,8 +681,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
             },
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               TextButton.icon(
                 onPressed: () {
@@ -776,7 +785,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    _emailController.text.trim().toLowerCase(),
+                    formatDisplayEmail(_emailController.text.trim().toLowerCase()),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

@@ -121,24 +121,30 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
                       parent: BouncingScrollPhysics(),
                     ),
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildOverviewHeader(provider.metrics!),
-                        const SizedBox(height: 16),
-                        _buildPilotTargetSummary(provider.metrics!),
-                        const SizedBox(height: 22),
-                        _buildSectionHeader(
-                          'Marketplace Performance',
-                          'Live marketplace indicators',
-                          Icons.bar_chart_rounded,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 850),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildOverviewHeader(provider.metrics!),
+                            const SizedBox(height: 16),
+                            _buildPilotTargetSummary(provider.metrics!),
+                            const SizedBox(height: 22),
+                            _buildSectionHeader(
+                              'Marketplace Performance',
+                              'Live marketplace indicators',
+                              Icons.bar_chart_rounded,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildStatsGrid(provider.metrics!),
+                            const SizedBox(height: 22),
+                            _buildSlaCard(),
+                            const SizedBox(height: 8),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        _buildStatsGrid(provider.metrics!),
-                        const SizedBox(height: 22),
-                        _buildSlaCard(),
-                        const SizedBox(height: 8),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -464,43 +470,52 @@ class _MetricsDashboardScreenState extends State<MetricsDashboardScreen> {
   }
 
   Widget _buildStatsGrid(PilotMetrics m) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.30,
-      children: [
-        _buildMetricBox(
-          'Total Listings',
-          m.totalListings.toString(),
-          Icons.inventory_2_rounded,
-          const Color(0xFF818CF8),
-          const Color(0xFF17224D),
-        ),
-        _buildMetricBox(
-          'Active Listings',
-          m.activeListings.toString(),
-          Icons.storefront_rounded,
-          const Color(0xFF2DD4BF),
-          const Color(0xFF0F3830),
-        ),
-        _buildMetricBox(
-          'Completed Sales',
-          m.soldListings.toString(),
-          Icons.check_circle_rounded,
-          const Color(0xFF38BDF8),
-          const Color(0xFF0C3854),
-        ),
-        _buildMetricBox(
-          'Listings with Chat',
-          m.listingsWithChat.toString(),
-          Icons.forum_rounded,
-          const Color(0xFFFB923C),
-          const Color(0xFF3E2210),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 550 ? 4 : 2;
+        final aspectRatio = constraints.maxWidth < 360
+            ? 1.15
+            : (constraints.maxWidth > 550 ? 1.25 : 1.30);
+
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: aspectRatio,
+          children: [
+            _buildMetricBox(
+              'Total Listings',
+              m.totalListings.toString(),
+              Icons.inventory_2_rounded,
+              const Color(0xFF818CF8),
+              const Color(0xFF17224D),
+            ),
+            _buildMetricBox(
+              'Active Listings',
+              m.activeListings.toString(),
+              Icons.storefront_rounded,
+              const Color(0xFF2DD4BF),
+              const Color(0xFF0F3830),
+            ),
+            _buildMetricBox(
+              'Completed Sales',
+              m.soldListings.toString(),
+              Icons.check_circle_rounded,
+              const Color(0xFF38BDF8),
+              const Color(0xFF0C3854),
+            ),
+            _buildMetricBox(
+              'Listings with Chat',
+              m.listingsWithChat.toString(),
+              Icons.forum_rounded,
+              const Color(0xFFFB923C),
+              const Color(0xFF3E2210),
+            ),
+          ],
+        );
+      },
     );
   }
 

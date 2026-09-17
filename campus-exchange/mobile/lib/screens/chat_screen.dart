@@ -115,17 +115,22 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0B1128),
       appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          _buildSafetyBanner(),
-          Expanded(
-            child: _buildMessageArea(
-              chatProvider,
-              currentStudentId,
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 750),
+          child: Column(
+            children: [
+              _buildSafetyBanner(),
+              Expanded(
+                child: _buildMessageArea(
+                  chatProvider,
+                  currentStudentId,
+                ),
+              ),
+              _buildMessageInput(),
+            ],
           ),
-          _buildMessageInput(),
-        ],
+        ),
       ),
     );
   }

@@ -197,14 +197,15 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             });
           },
         ),
-        _buildHeaderAction(
-          icon: Icons.insights_rounded,
-          color: const Color(0xFF2DD4BF),
-          tooltip: 'Metrics & Performance',
-          onTap: () {
-            Navigator.pushNamed(context, AppRoutes.metricsDashboard);
-          },
-        ),
+        if (canAccessAdminPanel)
+          _buildHeaderAction(
+            icon: Icons.insights_rounded,
+            color: const Color(0xFF2DD4BF),
+            tooltip: 'Metrics & Performance',
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.metricsDashboard);
+            },
+          ),
         _buildHeaderAction(
           icon: Icons.chat_bubble_outline_rounded,
           color: const Color(0xFF818CF8),
@@ -822,57 +823,97 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       );
     }
 
-    return SliverPadding(
-      padding: const EdgeInsets.only(
-        top: 8,
-        left: 12,
-        right: 12,
-      ),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final item = provider.listings[index];
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.crossAxisExtent >= 650;
 
-            return TweenAnimationBuilder<double>(
-              key: ValueKey(item),
-              duration: Duration(
-                milliseconds: 280 + (index.clamp(0, 5) * 45),
+        if (isWide) {
+          return SliverPadding(
+            padding: const EdgeInsets.only(
+              top: 8,
+              left: 14,
+              right: 14,
+            ),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 480,
+                mainAxisExtent: 315,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
-              curve: Curves.easeOutCubic,
-              tween: Tween(
-                begin: 0,
-                end: 1,
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = provider.listings[index];
+                  return ListingCard(
+                    listing: item,
+                    onTap: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.listingDetail,
+                        arguments: item,
+                      );
+                    },
+                  );
+                },
+                childCount: provider.listings.length,
               ),
-              builder: (context, value, child) {
-                return Transform.translate(
-                  offset: Offset(
-                    0,
-                    14 * (1 - value),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.only(
+            top: 8,
+            left: 12,
+            right: 12,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = provider.listings[index];
+
+                return TweenAnimationBuilder<double>(
+                  key: ValueKey(item),
+                  duration: Duration(
+                    milliseconds: 280 + (index.clamp(0, 5) * 45),
                   ),
-                  child: Opacity(
-                    opacity: value,
-                    child: child,
+                  curve: Curves.easeOutCubic,
+                  tween: Tween(
+                    begin: 0,
+                    end: 1,
+                  ),
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(
+                        0,
+                        14 * (1 - value),
+                      ),
+                      child: Opacity(
+                        opacity: value,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: ListingCard(
+                      listing: item,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.listingDetail,
+                          arguments: item,
+                        );
+                      },
+                    ),
                   ),
                 );
               },
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: ListingCard(
-                  listing: item,
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.listingDetail,
-                      arguments: item,
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-          childCount: provider.listings.length,
-        ),
-      ),
+              childCount: provider.listings.length,
+            ),
+          ),
+        );
+      },
     );
   }
 }

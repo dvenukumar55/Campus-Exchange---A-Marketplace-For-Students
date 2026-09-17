@@ -60,11 +60,11 @@ class Student {
     };
   }
 
-  bool get isVerified => verificationStatus == 'verified';
+  bool get isVerified => verificationStatus.toLowerCase().trim() == 'verified';
 
-  bool get isAdmin => role == 'admin';
+  bool get isAdmin => role.toLowerCase().trim() == 'admin';
 
-  bool get isModerator => role == 'moderator';
+  bool get isModerator => role.toLowerCase().trim() == 'moderator';
 
   bool get canAccessAdminPanel => isAdmin || isModerator;
 }

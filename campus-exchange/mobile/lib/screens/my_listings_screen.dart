@@ -63,14 +63,19 @@ class MyListingsScreen extends StatelessWidget {
               onAction: () =>
                   Navigator.pushNamed(context, AppRoutes.createListing),
             )
-          : ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              itemCount: myListings.length,
-              itemBuilder: (context, index) {
-                final item = myListings[index];
-                return _buildMyListingItemCard(context, item);
-              },
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  itemCount: myListings.length,
+                  itemBuilder: (context, index) {
+                    final item = myListings[index];
+                    return _buildMyListingItemCard(context, item);
+                  },
+                ),
+              ),
             ),
     );
   }
@@ -137,54 +142,63 @@ class MyListingsScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(
-                    context,
-                    AppRoutes.listingDetail,
-                    arguments: item,
-                  );
-                },
-                icon: const Icon(
-                  Icons.visibility_outlined,
-                  size: 16,
-                  color: Color(0xFF94A3B8),
-                ),
-                label: const Text(
-                  'View Detail',
-                  style: TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: 12.5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: AppTheme.buttonGradient,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.editListing,
-                      arguments: item,
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    size: 15,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Manage Status',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
+              Flexible(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.listingDetail,
+                          arguments: item,
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.visibility_outlined,
+                        size: 16,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      label: const Text(
+                        'View Detail',
+                        style: TextStyle(
+                          color: Color(0xFFCBD5E1),
+                          fontSize: 12.5,
+                        ),
+                      ),
                     ),
-                  ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.buttonGradient,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.editListing,
+                            arguments: item,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Manage Status',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -113,32 +113,37 @@ class _ReportScreenState extends State<ReportScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSafetyHeader(),
-                const SizedBox(height: 16),
-                _buildListingCard(),
-                const SizedBox(height: 22),
-                _buildSectionTitle(
-                  icon: Icons.flag_outlined,
-                  title: 'What is wrong with this listing?',
-                  subtitle: 'Select the reason that best describes the issue.',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSafetyHeader(),
+                    const SizedBox(height: 16),
+                    _buildListingCard(),
+                    const SizedBox(height: 22),
+                    _buildSectionTitle(
+                      icon: Icons.flag_outlined,
+                      title: 'What is wrong with this listing?',
+                      subtitle: 'Select the reason that best describes the issue.',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildReasonSelector(),
+                    const SizedBox(height: 22),
+                    _buildDetailsSection(),
+                    const SizedBox(height: 16),
+                    _buildPrivacyNotice(),
+                    const SizedBox(height: 22),
+                    _buildSubmitButton(),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                _buildReasonSelector(),
-                const SizedBox(height: 22),
-                _buildDetailsSection(),
-                const SizedBox(height: 16),
-                _buildPrivacyNotice(),
-                const SizedBox(height: 22),
-                _buildSubmitButton(),
-              ],
+              ),
             ),
           ),
         ),

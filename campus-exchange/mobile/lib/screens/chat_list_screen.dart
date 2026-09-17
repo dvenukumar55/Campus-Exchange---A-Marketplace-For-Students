@@ -122,28 +122,33 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   onRefresh: () async {
                     await chatProvider.fetchUserConversations();
                   },
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: BouncingScrollPhysics(),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 750),
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                        itemCount: chatProvider.userConversations.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final chat = chatProvider.userConversations[index];
+
+                          final listing =
+                              listingProvider.listings.cast<dynamic>().firstWhere(
+                                    (l) => l.listingId == chat.listingId,
+                                    orElse: () => null,
+                                  );
+
+                          return _buildConversationCard(
+                            context,
+                            chat,
+                            listing,
+                          );
+                        },
+                      ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                    itemCount: chatProvider.userConversations.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final chat = chatProvider.userConversations[index];
-
-                      final listing =
-                          listingProvider.listings.cast<dynamic>().firstWhere(
-                                (l) => l.listingId == chat.listingId,
-                                orElse: () => null,
-                              );
-
-                      return _buildConversationCard(
-                        context,
-                        chat,
-                        listing,
-                      );
-                    },
                   ),
                 ),
     );

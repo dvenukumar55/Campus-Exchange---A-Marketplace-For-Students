@@ -174,5 +174,95 @@ describe('Integration Test: New Listing Notifications & College Isolation', () =
       .set('Authorization', `Bearer ${tokenB}`);
     expect(finalUnreadB.body.unreadCount).toBe(0);
   });
+
+  test('New listing notifications are received by both ALL students and ALL admins', async () => {
+    // Setup Admin user
+    const admin = await Student.create({
+      studentId: 'admin_user_1',
+      collegeId: 'avih-gunthapalli',
+      officialEmail: 'admin1@avih.edu.in',
+      fullName: 'Admin One',
+      role: 'admin',
+      verificationStatus: VERIFICATION_STATUS.VERIFIED,
+      accountStatus: ACCOUNT_STATUS.ACTIVE,
+      rollNumber: 'ADM001',
+    });
+    const sessionAdminId = uuidv4();
+    await Session.create({
+      sessionId: sessionAdminId,
+      studentId: admin.studentId,
+      collegeId: admin.collegeId,
+      deviceId: uuidv4(),
+      active: true,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+    const tokenAdmin = authService.generateToken(admin, sessionAdminId);
+
+    // Scenario 1: Student A creates listing -> Student B AND Admin receive notifications
+    const res1 = await request(app)
+      .post('/api/v1/listings')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        title: 'Operating Systems Textbook',
+        description: 'Galvin textbook',
+        category: 'Academic / Books',
+        price: 400,
+        condition: 'Good',
+        photoRefs: ['mock_os_book.jpg'],
+      });
+    expect(res1.statusCode).toBe(201);
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Student B should have received it
+    const notifsB = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(notifsB.body.notifications.some((n) => n.listingTitle === 'Operating Systems Textbook')).toBe(true);
+
+    // Admin should have received it
+    const notifsAdmin = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(notifsAdmin.body.notifications.some((n) => n.listingTitle === 'Operating Systems Textbook')).toBe(true);
+
+    // Student A (creator) should NOT have received it
+    const notifsA = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(notifsA.body.notifications.some((n) => n.listingTitle === 'Operating Systems Textbook')).toBe(false);
+
+    // Scenario 2: Admin creates listing -> Student A AND Student B receive notifications
+    const res2 = await request(app)
+      .post('/api/v1/listings')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        title: 'Casio fx-991EX Calculator',
+        description: 'Scientific Calculator in perfect working condition',
+        category: 'Scientific Calculators',
+        price: 450,
+        condition: 'Like New',
+        photoRefs: ['mock_calc.jpg'],
+      });
+    expect(res2.statusCode).toBe(201);
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Student A should have received it
+    const notifsA2 = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(notifsA2.body.notifications.some((n) => n.listingTitle === 'Casio fx-991EX Calculator')).toBe(true);
+
+    // Student B should have received it
+    const notifsB2 = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenB}`);
+    expect(notifsB2.body.notifications.some((n) => n.listingTitle === 'Casio fx-991EX Calculator')).toBe(true);
+
+    // Admin (creator) should NOT have received own notification
+    const notifsAdmin2 = await request(app)
+      .get('/api/v1/notifications')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(notifsAdmin2.body.notifications.some((n) => n.listingTitle === 'Casio fx-991EX Calculator')).toBe(false);
+  });
 });
 

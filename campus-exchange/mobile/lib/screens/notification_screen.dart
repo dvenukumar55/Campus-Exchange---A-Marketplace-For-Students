@@ -323,18 +323,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
       );
     }
 
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 750),
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+          itemCount: provider.notifications.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final notif = provider.notifications[index];
+            return _buildNotificationCard(notif);
+          },
+        ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-      itemCount: provider.notifications.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final notif = provider.notifications[index];
-
-        return _buildNotificationCard(notif);
-      },
     );
   }
 

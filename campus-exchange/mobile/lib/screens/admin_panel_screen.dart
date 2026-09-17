@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/utils/display_utils.dart';
 import '../models/listing.dart';
 import '../models/report.dart';
 import '../providers/auth_provider.dart';
@@ -134,16 +135,21 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF0B1128),
       appBar: _buildAppBar(student),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOverviewTab(listingProvider),
-          _buildUsersTab(),
-          _buildListingsTab(listingProvider),
-          _buildReportsTab(),
-          _buildAuditLogsTab(),
-          _buildSettingsTab(),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 850),
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildOverviewTab(listingProvider),
+              _buildUsersTab(),
+              _buildListingsTab(listingProvider),
+              _buildReportsTab(),
+              _buildAuditLogsTab(),
+              _buildSettingsTab(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -937,7 +943,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            email,
+                            formatDisplayEmail(email),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1811,7 +1817,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           const SizedBox(height: 20),
           _buildSectionHeader(
             'Email Security',
-            'Verified institutional domains',
+            'Verified email domains',
             Icons.mark_email_read_rounded,
           ),
           const SizedBox(height: 11),
@@ -1820,7 +1826,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildDomainRow(
-                  '@avih.edu.in',
+                  '@gmail.com',
                   collegeName,
                 ),
               ],

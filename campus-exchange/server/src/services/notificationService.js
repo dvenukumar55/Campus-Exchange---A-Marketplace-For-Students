@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const Notification = require('../models/Notification');
 const Student = require('../models/Student');
-const { VERIFICATION_STATUS, ACCOUNT_STATUS } = require('../config/constants');
+const { VERIFICATION_STATUS, ACCOUNT_STATUS, USER_ROLE } = require('../config/constants');
 const logger = require('../utils/logger');
 
 class NotificationService {
@@ -14,7 +14,7 @@ class NotificationService {
   }
 
   /**
-   * Broadcasts and persists new listing notifications to all other verified active students in the same college.
+   * Broadcasts and persists new listing notifications to all verified active students in the college and all active admins.
    */
   async notifyNewListing({ listing, sellerStudent }) {
     try {
@@ -24,28 +24,46 @@ class NotificationService {
       const sellerId = sellerStudent.studentId;
       const sellerName = sellerStudent.fullName || 'Student';
 
-      // Find all active, verified students in the same college excluding the seller
+      // Find all active, verified students in the same college AND all active admins, excluding the seller
       const recipients = await Student.find(
         {
-          collegeId,
+          $or: [
+            {
+              collegeId,
+              verificationStatus: VERIFICATION_STATUS.VERIFIED,
+              accountStatus: ACCOUNT_STATUS.ACTIVE,
+            },
+            {
+              role: { $in: [USER_ROLE.ADMIN, USER_ROLE.MODERATOR] },
+              accountStatus: ACCOUNT_STATUS.ACTIVE,
+            },
+          ],
           studentId: { $ne: sellerId },
-          verificationStatus: VERIFICATION_STATUS.VERIFIED,
-          accountStatus: ACCOUNT_STATUS.ACTIVE,
         },
-        'studentId officialEmail fullName'
+        'studentId officialEmail fullName collegeId role'
       ).lean();
 
-      if (!recipients || recipients.length === 0) {
+      // Deduplicate recipients by studentId to prevent duplicate notifications
+      const seenStudentIds = new Set();
+      const uniqueRecipients = [];
+      for (const recipient of recipients) {
+        if (!seenStudentIds.has(recipient.studentId) && recipient.studentId !== sellerId) {
+          seenStudentIds.add(recipient.studentId);
+          uniqueRecipients.push(recipient);
+        }
+      }
+
+      if (uniqueRecipients.length === 0) {
         return { count: 0 };
       }
 
       const title = 'New listing posted';
       const message = `${sellerName} posted ${listing.title} for ₹${listing.price}`;
 
-      const notificationsToInsert = recipients.map((recipient) => ({
+      const notificationsToInsert = uniqueRecipients.map((recipient) => ({
         notificationId: `notif_${uuidv4().replace(/-/g, '').substring(0, 12)}`,
         recipientStudentId: recipient.studentId,
-        collegeId,
+        collegeId: recipient.collegeId || collegeId,
         listingId: listing.listingId,
         senderStudentId: sellerId,
         senderName: sellerName,
