@@ -19,6 +19,7 @@ class EmailService {
           user: env.SMTP_USER,
           pass: env.SMTP_PASS,
         },
+        family: 4,
       });
       logger.info('Gmail SMTP email transport initialized', {
         host: env.SMTP_HOST || 'smtp.gmail.com',
