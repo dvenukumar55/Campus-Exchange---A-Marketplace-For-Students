@@ -54,6 +54,10 @@ const env = {
   BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL || '',
   BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'Campus Exchange',
 
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
+
   // Default pilot college
   DEFAULT_COLLEGE_ID:
     process.env.DEFAULT_COLLEGE_ID || 'avih-gunthapalli',

@@ -351,6 +351,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
       color: Colors.white.withValues(alpha: 0.06),
     );
   }
+///////////////////
 
   Widget _buildStatusActionTile({
     required String title,
@@ -365,10 +366,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isCurrent ? color.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
@@ -377,6 +375,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 40,
@@ -391,13 +390,16 @@ class _EditListingScreenState extends State<EditListingScreen> {
               size: 20,
             ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w700,
@@ -418,12 +420,13 @@ class _EditListingScreenState extends State<EditListingScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           if (isCurrent)
             Container(
+              constraints: const BoxConstraints(minWidth: 68),
               padding: const EdgeInsets.symmetric(
                 horizontal: 9,
-                vertical: 5,
+                vertical: 7,
               ),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.18),
@@ -451,8 +454,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
             )
           else if (_isUpdating)
             const SizedBox(
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               child: Padding(
                 padding: EdgeInsets.all(7),
                 child: CircularProgressIndicator(
@@ -463,7 +466,8 @@ class _EditListingScreenState extends State<EditListingScreen> {
             )
           else
             SizedBox(
-              height: 34,
+              height: 38,
+              width: 58,
               child: OutlinedButton(
                 onPressed: () => _updateStatus(targetStatus),
                 style: OutlinedButton.styleFrom(
@@ -471,9 +475,7 @@ class _EditListingScreenState extends State<EditListingScreen> {
                   side: BorderSide(
                     color: color.withValues(alpha: 0.45),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                  ),
+                  padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(9),
                   ),
@@ -491,6 +493,145 @@ class _EditListingScreenState extends State<EditListingScreen> {
       ),
     );
   }
+  // Widget _buildStatusActionTile({
+  //   required String title,
+  //   required String subtitle,
+  //   required IconData icon,
+  //   required Color color,
+  //   required String targetStatus,
+  // }) {
+  //   final isCurrent =
+  //       _currentStatus.toLowerCase() == targetStatus.toLowerCase();
+
+  //   return AnimatedContainer(
+  //     duration: const Duration(milliseconds: 220),
+  //     margin: const EdgeInsets.symmetric(vertical: 6),
+  //     padding: const EdgeInsets.symmetric(
+  //       horizontal: 8,
+  //       vertical: 7,
+  //     ),
+  //     decoration: BoxDecoration(
+  //       color: isCurrent ? color.withValues(alpha: 0.1) : Colors.transparent,
+  //       borderRadius: BorderRadius.circular(14),
+  //       border: Border.all(
+  //         color: isCurrent ? color.withValues(alpha: 0.25) : Colors.transparent,
+  //       ),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Container(
+  //           width: 40,
+  //           height: 40,
+  //           decoration: BoxDecoration(
+  //             color: color.withValues(alpha: 0.15),
+  //             borderRadius: BorderRadius.circular(12),
+  //           ),
+  //           child: Icon(
+  //             icon,
+  //             color: color,
+  //             size: 20,
+  //           ),
+  //         ),
+  //         const SizedBox(width: 11),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 title,
+  //                 style: TextStyle(
+  //                   fontSize: 13.5,
+  //                   fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w700,
+  //                   color: isCurrent ? color : Colors.white,
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 3),
+  //               Text(
+  //                 subtitle,
+  //                 maxLines: 2,
+  //                 overflow: TextOverflow.ellipsis,
+  //                 style: const TextStyle(
+  //                   fontSize: 10.5,
+  //                   height: 1.3,
+  //                   color: Color(0xFF94A3B8),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         const SizedBox(width: 8),
+  //         if (isCurrent)
+  //           Container(
+  //             padding: const EdgeInsets.symmetric(
+  //               horizontal: 9,
+  //               vertical: 5,
+  //             ),
+  //             decoration: BoxDecoration(
+  //               color: color.withValues(alpha: 0.18),
+  //               borderRadius: BorderRadius.circular(8),
+  //             ),
+  //             child: Row(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 Icon(
+  //                   Icons.check_rounded,
+  //                   size: 13,
+  //                   color: color,
+  //                 ),
+  //                 const SizedBox(width: 3),
+  //                 Text(
+  //                   'Current',
+  //                   style: TextStyle(
+  //                     fontSize: 10,
+  //                     fontWeight: FontWeight.w800,
+  //                     color: color,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           )
+  //         else if (_isUpdating)
+  //           const SizedBox(
+  //             width: 30,
+  //             height: 30,
+  //             child: Padding(
+  //               padding: EdgeInsets.all(7),
+  //               child: CircularProgressIndicator(
+  //                 strokeWidth: 2,
+  //                 color: Color(0xFF60A5FA),
+  //               ),
+  //             ),
+  //           )
+  //         else
+  //           SizedBox(
+  //             height: 34,
+  //             child: OutlinedButton(
+  //               onPressed: () => _updateStatus(targetStatus),
+  //               style: OutlinedButton.styleFrom(
+  //                 foregroundColor: color,
+  //                 side: BorderSide(
+  //                   color: color.withValues(alpha: 0.45),
+  //                 ),
+  //                 padding: const EdgeInsets.symmetric(
+  //                   horizontal: 12,
+  //                 ),
+  //                 shape: RoundedRectangleBorder(
+  //                   borderRadius: BorderRadius.circular(9),
+  //                 ),
+  //               ),
+  //               child: const Text(
+  //                 'Set',
+  //                 style: TextStyle(
+  //                   fontSize: 11,
+  //                   fontWeight: FontWeight.w800,
+  //                 ),
+  //               ),
+  //             ),
+  //           ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildInfoCard() {
     return Container(

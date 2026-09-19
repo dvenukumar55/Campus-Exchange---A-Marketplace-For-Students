@@ -183,11 +183,10 @@ class ApiClient {
       return jsonBody;
     }
 
-    final errorObj = jsonBody is Map && jsonBody['error'] is Map
-        ? jsonBody['error']
-        : null;
-    final message = errorObj?['message'] ??
-        'An error occurred (${response.statusCode})';
+    final errorObj =
+        jsonBody is Map && jsonBody['error'] is Map ? jsonBody['error'] : null;
+    final message =
+        errorObj?['message'] ?? 'An error occurred (${response.statusCode})';
     final code = errorObj?['code'] ?? 'UNKNOWN_ERROR';
     final requestId = errorObj?['requestId'];
 
@@ -220,8 +219,9 @@ class ApiClient {
     if (e is AppException) {
       throw e;
     }
-    throw NetworkException(
-      'Network error. Please check your internet connection and verify the server is running.',
-    );
+
+    print('API NETWORK ERROR: $e');
+
+    throw NetworkException('Network error: $e');
   }
 }

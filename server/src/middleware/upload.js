@@ -12,16 +12,19 @@ if (env.STORAGE_PROVIDER === 'local') {
   }
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, env.STORAGE_LOCAL_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const photoId = `photo_${uuidv4()}${ext}`;
-    cb(null, photoId);
-  },
-});
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, env.STORAGE_LOCAL_DIR);
+//   },
+//   filename: (req, file, cb) => {
+//     const ext = path.extname(file.originalname).toLowerCase();
+//     const photoId = `photo_${uuidv4()}${ext}`;
+//     cb(null, photoId);
+//   },
+// });
+
+
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const mimetype = (file.mimetype || '').toLowerCase();

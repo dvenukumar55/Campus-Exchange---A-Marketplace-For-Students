@@ -1,5 +1,6 @@
 const listingService = require('../services/listingService');
 const { sendSuccess } = require('../utils/response');
+const cloudinary = require('../config/cloudinary');
 
 class ListingController {
   /**
@@ -132,6 +133,29 @@ class ListingController {
    * POST /api/v1/listings/upload-image
    * Handles photo upload for listing creation
    */
+  // async uploadImage(req, res, next) {
+  //   try {
+  //     if (!req.file) {
+  //       return res.status(400).json({
+  //         error: {
+  //           code: 'UPLOAD_FAILED',
+  //           message: 'No image file uploaded in request',
+  //         },
+  //       });
+  //     }
+
+  //     const photoRef = req.file.filename;
+  //     return sendSuccess(res, 201, {
+  //       photoRef,
+  //       url: `/uploads/${photoRef}`,
+  //       size: req.file.size,
+  //       mimetype: req.file.mimetype,
+  //     });
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
+
   async uploadImage(req, res, next) {
     try {
       if (!req.file) {
@@ -143,10 +167,29 @@ class ListingController {
         });
       }
 
-      const photoRef = req.file.filename;
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'campus-exchange/listings',
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+
+        stream.end(req.file.buffer);
+      });
+
+      const photoRef = result.secure_url;
+
       return sendSuccess(res, 201, {
         photoRef,
-        url: `/uploads/${photoRef}`,
+        url: result.secure_url,
         size: req.file.size,
         mimetype: req.file.mimetype,
       });
